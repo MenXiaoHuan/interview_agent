@@ -1,0 +1,56 @@
+:root {
+  /* 默认主题变量 */
+  --primary-bg: #f5f7fa;
+  --secondary-bg: #ffffff;
+  --text-color: #333333;
+  --border-color: #eeeeee;
+  --hover-bg: #f9f9f9;
+  --icon-color: #333333;
+  --accent-color: #4CAF50;
+}
+
+/* 护眼模式主题 */
+.eye-care-theme {
+  --primary-bg: #f0f2e6;
+  --secondary-bg: #f8f9e8;
+  --text-color: #333333;
+  --border-color: #e6e6d9;
+  --hover-bg: #e8ecd9;
+  --icon-color: #3e8e41;
+  --accent-color: #4CAF50;
+}
+
+/* 全局应用主题变量 */
+body {
+  background-color: var(--primary-bg);
+  color: var(--text-color);
+  transition: all 0.3s ease;
+}
+
+.uni-page-head {
+  background-color: var(--secondary-bg) !important;
+}
+
+.uni-page-head-bd {
+  color: var(--text-color) !important;
+}
+
+/* 护眼模式下的全局样式覆盖 */
+.eye-care-theme * {
+  background-color: var(--secondary-bg);
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+.eye-care-theme .uni-page-head {
+  background-color: var(--secondary-bg) !important;
+}
+
+.eye-care-theme .uni-page-head * {
+  color: var(--text-color) !important;
+}
+
+/* 添加柔和的文字阴影，减少视觉疲劳 */
+.eye-care-theme {
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
+} 

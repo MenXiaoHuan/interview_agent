@@ -1,0 +1,133 @@
+{
+	"pages": [{
+		"path": "pages/landing/index",
+		"style": {
+			"navigationBarTitleText": "AI 面试平台"
+		}
+	},{
+		"path": "pages/login/index",
+		"style": {
+			"navigationBarTitleText": "登录"
+		}
+	},{
+		"path": "pages/home/index",
+		"style": {
+			"navigationBarTitleText": "首页"
+		}
+	},{
+		"path": "pages/register/index",
+		"style": {
+			"navigationBarTitleText": "注册"
+		}
+	},{
+		"path": "pages/job-selection/index",
+		"style": {
+			"navigationBarTitleText": "岗位选择"
+		}
+	},{
+		"path": "pages/interview-interface/index",
+		"style": {
+			"navigationBarTitleText": "模拟面试"
+		}
+	},{
+		"path": "pages/interview-ai/index",
+		"style": {
+			"navigationBarTitleText": "AI面试"
+		}
+	},{
+		"path": "pages/interview-resume/index",
+		"style": {
+			"navigationBarTitleText": "简历评测"
+		}
+	},{
+		"path": "pages/interview-questions/index",
+		"style": {
+			"navigationBarTitleText": "试题作答"
+		}
+},{
+		"path": "pages/interview-scenario/index",
+		"style": {
+			"navigationBarTitleText": "场景评测"
+		}
+	},{
+		"path": "pages/history/index",
+		"style": {
+			"navigationBarTitleText": "历史记录"
+		}
+	},{
+		"path": "pages/comprehensive-report/index",
+		"style": {
+			"navigationBarTitleText": "综合报告"
+		}
+	},{
+		"path": "pages/comprehensive-resume/index",
+		"style": {
+			"navigationBarTitleText": "简历评测"
+		}
+	},{
+		"path": "pages/comprehensive-questions/index",
+		"style": {
+			"navigationBarTitleText": "试题作答"
+		}
+	},{
+		"path": "pages/comprehensive-scenario/index",
+		"style": {
+			"navigationBarTitleText": "场景评测"
+		}
+	},{
+		"path": "pages/personal-center/index",
+		"style": {
+			"navigationBarTitleText": "个人中心"
+}	},{
+		"path": "pages/chat-hall/index",
+		"style": {
+			"navigationBarTitleText": "聊天大厅"
+		}
+	},{
+		"path": "pages/leaderboard/index",
+		"style": {
+			"navigationBarTitleText": "排行榜"
+		}
+	},{
+		"path": "pages/admin/index",
+		"style": {
+			"navigationBarTitleText": "管理员中心"
+		}
+	},{
+		"path": "pages/admin/user-list/index",
+		"style": {
+			"navigationBarTitleText": "用户列表管理"
+		}
+	},{
+		"path": "pages/admin/user-permission/index",
+		"style": {
+			"navigationBarTitleText": "用户权限管理"
+		}
+	},{
+		"path": "pages/admin/question-management/index",
+		"style": {
+			"navigationBarTitleText": "专项评测管理"
+		}
+	},{
+		"path": "pages/admin/scenario-management/index",
+		"style": {
+			"navigationBarTitleText": "场景评测管理"
+		}
+	},{
+		"path": "pages/admin/job-category/index",
+		"style": {
+			"navigationBarTitleText": "岗位分类管理"
+		}
+	},{
+		"path": "pages/admin/job-position/index",
+		"style": {
+			"navigationBarTitleText": "岗位职位管理"
+		}
+	}],
+	"globalStyle": {
+		"navigationBarHidden": true,
+		"navigationStyle": "custom",
+		"backgroundColor": "#F8F8F8",
+		"backgroundTextStyle": "dark"
+	}
+}

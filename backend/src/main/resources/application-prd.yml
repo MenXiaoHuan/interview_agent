@@ -1,0 +1,10 @@
+# 生产环境覆写配置，沿用 prd 配置名以兼容现有部署方式。
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/interview-agent
+    username: interview-agent
+    password: Zk7ZBNH4jsbymaxa
+
+server:
+  ssl:
+    enabled: false
