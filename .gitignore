@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.iml
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment / local secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+
+# Java / Spring Boot
+*.class
+backend/target/
+
+# Node.js / frontend
+node_modules/
+project/node_modules/
+dist/
+coverage/
+.cache/
+.vite/
+project/dist/
+project/unpackage/
+
+# Project-local accidental folder
+/personal_agent/
