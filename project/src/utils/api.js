@@ -1,13 +1,12 @@
 import request from '@/utils/request';
-import { patchGlobalRequestApis } from '@/utils/graphql-bridge';
 import { BASE_URL } from '@/utils/api-config';
 
-patchGlobalRequestApis();
 export { BASE_URL };
 
 // API 端点
 export const API = {
   AUTH: {
+    RSA_PUBLIC_KEY: `${BASE_URL}/api/auth/rsa-public-key`,
     LOGIN: `${BASE_URL}/api/auth/login`,
     REGISTER: `${BASE_URL}/api/auth/register`,
     FORGOT: {
@@ -155,6 +154,13 @@ export const API = {
     QUERY_TASK: (taskId) => `${BASE_URL}/api/transcription/query-task/${taskId}`,
   },
 };
+
+export function fetchRsaPublicKey() {
+  return request({
+    url: API.AUTH.RSA_PUBLIC_KEY,
+    method: 'get'
+  });
+}
 
 // ==================== 面试相关API ====================
 
