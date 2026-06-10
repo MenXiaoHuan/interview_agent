@@ -10,7 +10,7 @@ import java.util.Map;
  */
 @Data
 public class AgentConversationUpsertRequest {
-    private String sessionId;
+    private String chatId;
     private String agentKey;
     private Long jobId;
     private String title;

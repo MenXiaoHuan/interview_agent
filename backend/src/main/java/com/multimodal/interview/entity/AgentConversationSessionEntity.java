@@ -12,7 +12,7 @@ public class AgentConversationSessionEntity {
     private Long id;
     private Long userId;
     private String agentKey;
-    private String sessionId;
+    private String chatId;
     private String title;
     private String preview;
     private LocalDateTime createdAt;

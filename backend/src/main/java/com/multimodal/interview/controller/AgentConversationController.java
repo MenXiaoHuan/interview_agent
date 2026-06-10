@@ -62,43 +62,43 @@ public class AgentConversationController {
     }
 
     @Operation(summary = "删除当前用户的 Agent 会话")
-    @DeleteMapping("/{sessionId}")
+    @DeleteMapping("/{chatId}")
     public ApiResponse<Void> deleteCurrentUserConversation(
-            @PathVariable String sessionId,
+            @PathVariable String chatId,
             Authentication authentication
     ) {
         User user = userMapper.findByUsername(authentication.getName());
-        agentConversationService.deleteUserConversation(user.getId(), sessionId);
+        agentConversationService.deleteUserConversation(user.getId(), chatId);
         return ApiResponse.success("删除成功", null);
     }
 
     @Operation(summary = "查询当前用户某个会话的消息记录")
-    @GetMapping("/{sessionId}/messages")
+    @GetMapping("/{chatId}/messages")
     public ApiResponse<List<AgentConversationMessageResponse>> listCurrentUserConversationMessages(
-            @PathVariable String sessionId,
+            @PathVariable String chatId,
             Authentication authentication
     ) {
         User user = userMapper.findByUsername(authentication.getName());
-        return ApiResponse.success(agentConversationService.listUserConversationMessages(user.getId(), sessionId));
+        return ApiResponse.success(agentConversationService.listUserConversationMessages(user.getId(), chatId));
     }
 
     @Operation(summary = "查询当前用户某个会话的事件记录")
-    @GetMapping("/{sessionId}/events")
+    @GetMapping("/{chatId}/events")
     public ApiResponse<List<Map<String, Object>>> listCurrentUserConversationEvents(
-            @PathVariable String sessionId,
+            @PathVariable String chatId,
             Authentication authentication
     ) {
         User user = userMapper.findByUsername(authentication.getName());
-        return ApiResponse.success(agentConversationService.listUserConversationEvents(user.getId(), sessionId));
+        return ApiResponse.success(agentConversationService.listUserConversationEvents(user.getId(), chatId));
     }
 
     @Operation(summary = "查询当前用户某个会话的压缩记忆")
-    @GetMapping("/{sessionId}/memory")
+    @GetMapping("/{chatId}/memory")
     public ApiResponse<AgentConversationMemoryResponse> getCurrentUserConversationMemory(
-            @PathVariable String sessionId,
+            @PathVariable String chatId,
             Authentication authentication
     ) {
         User user = userMapper.findByUsername(authentication.getName());
-        return ApiResponse.success(agentConversationService.getUserConversationMemory(user.getId(), sessionId));
+        return ApiResponse.success(agentConversationService.getUserConversationMemory(user.getId(), chatId));
     }
 }

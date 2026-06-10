@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Agent 会话聚合服务实现。
@@ -36,7 +37,6 @@ public class AgentConversationServiceImpl implements AgentConversationService {
     private static final String DEFAULT_AGENT_KEY = "interview-assistant";
     private static final String STATE_SNAPSHOT_EVENT_TYPE = "session_state_snapshot";
     private static final String DEFAULT_PREVIEW = "点击开始对话";
-
     private final AgentConversationSessionMapper sessionMapper;
     private final AgentConversationMessageMapper messageMapper;
     private final AgentConversationEventMapper eventMapper;
@@ -74,20 +74,21 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         if (request == null) {
             throw BusinessException.badRequest("会话请求不能为空");
         }
-        String sessionId = safeText(request.getSessionId());
-        if (sessionId.isBlank()) {
-            throw BusinessException.badRequest("sessionId 不能为空");
-        }
+        String conversationId = resolveIncomingConversationId(request);
 
         String safeAgentKey = normalizeAgentKey(request.getAgentKey());
         List<AgentConversationMessageResponse> messages = normalizeMessages(request.getAiMessages());
         List<Map<String, Object>> eventLogs = normalizeEventLogs(request.getEventLogs());
 
-        AgentConversationSessionEntity existing = sessionMapper.findByUserAndSessionId(userId, sessionId);
+        AgentConversationSessionEntity existing = conversationId.isBlank()
+                ? null
+                : sessionMapper.findByUserAndConversationId(userId, conversationId);
         AgentConversationSessionEntity target = existing == null ? new AgentConversationSessionEntity() : existing;
         target.setUserId(userId);
         target.setAgentKey(safeAgentKey);
-        target.setSessionId(sessionId);
+        if (existing == null) {
+            target.setChatId(generateChatId());
+        }
         target.setTitle(resolveSessionTitle(request, messages, existing));
         target.setPreview(buildPreview(messages));
 
@@ -97,61 +98,62 @@ public class AgentConversationServiceImpl implements AgentConversationService {
             sessionMapper.updateById(target);
         }
 
-        syncMessages(sessionId, messages);
-        syncVisibleEvents(sessionId, eventLogs);
-        syncStateSnapshotEvent(sessionId, request);
+        syncMessages(target.getChatId(), messages);
+        syncVisibleEvents(target.getChatId(), eventLogs);
+        syncStateSnapshotEvent(target.getChatId(), request);
         sessionMapper.touchById(target.getId());
         return toResponse(target);
     }
 
     @Override
     @Transactional
-    public void deleteUserConversation(Long userId, String sessionId) {
-        AgentConversationSessionEntity existing = sessionMapper.findByUserAndSessionId(userId, sessionId);
+    public void deleteUserConversation(Long userId, String chatId) {
+        AgentConversationSessionEntity existing = findOwnedSession(userId, chatId);
         if (existing == null) {
             return;
         }
-        messageMapper.deleteBySessionId(sessionId);
-        eventMapper.deleteBySessionId(sessionId);
-        memoryMapper.deleteBySessionId(sessionId);
-        sessionMapper.deleteByUserAndSessionId(userId, sessionId);
+        messageMapper.deleteByChatId(existing.getChatId());
+        eventMapper.deleteByChatId(existing.getChatId());
+        memoryMapper.deleteByChatId(existing.getChatId());
+        sessionMapper.deleteByUserAndConversationId(userId, existing.getChatId());
     }
 
     @Override
-    public List<AgentConversationMessageResponse> listUserConversationMessages(Long userId, String sessionId) {
-        AgentConversationSessionEntity session = findOwnedSession(userId, sessionId);
+    public List<AgentConversationMessageResponse> listUserConversationMessages(Long userId, String chatId) {
+        AgentConversationSessionEntity session = findOwnedSession(userId, chatId);
         if (session == null) {
             return List.of();
         }
-        return toMessageResponses(messageMapper.findBySessionId(session.getSessionId()));
+        return toMessageResponses(messageMapper.findByChatId(session.getChatId()));
     }
 
     @Override
-    public List<Map<String, Object>> listUserConversationEvents(Long userId, String sessionId) {
-        AgentConversationSessionEntity session = findOwnedSession(userId, sessionId);
+    public List<Map<String, Object>> listUserConversationEvents(Long userId, String chatId) {
+        AgentConversationSessionEntity session = findOwnedSession(userId, chatId);
         if (session == null) {
             return List.of();
         }
-        return readVisibleEvents(session.getSessionId());
+        return readVisibleEvents(session.getChatId());
     }
 
     @Override
-    public AgentConversationMemoryResponse getUserConversationMemory(Long userId, String sessionId) {
-        AgentConversationSessionEntity session = findOwnedSession(userId, sessionId);
+    public AgentConversationMemoryResponse getUserConversationMemory(Long userId, String chatId) {
+        AgentConversationSessionEntity session = findOwnedSession(userId, chatId);
         if (session == null) {
             return null;
         }
-        return toMemoryResponse(memoryMapper.findBySessionId(session.getSessionId()));
+        return toMemoryResponse(memoryMapper.findByChatId(session.getChatId()));
     }
 
     private AgentConversationResponse toResponse(AgentConversationSessionEntity session) {
-        List<AgentConversationMessageEntity> messageEntities = messageMapper.findBySessionId(session.getSessionId());
+        List<AgentConversationMessageEntity> messageEntities = messageMapper.findByChatId(session.getChatId());
         List<AgentConversationMessageResponse> messages = toMessageResponses(messageEntities);
-        List<Map<String, Object>> visibleEvents = readVisibleEvents(session.getSessionId());
-        Map<String, Object> snapshot = readStateSnapshot(session.getSessionId());
+        List<Map<String, Object>> visibleEvents = readVisibleEvents(session.getChatId());
+        Map<String, Object> snapshot = readStateSnapshot(session.getChatId());
 
         AgentConversationResponse response = new AgentConversationResponse();
-        response.setId(session.getSessionId());
+        response.setId(session.getChatId());
+        response.setChatId(session.getChatId());
         response.setJobId(asLong(snapshot.get("jobId")));
         response.setAgentKey(session.getAgentKey());
         response.setTitle(safeText(session.getTitle()));
@@ -174,7 +176,7 @@ public class AgentConversationServiceImpl implements AgentConversationService {
             return null;
         }
         AgentConversationMemoryResponse response = new AgentConversationMemoryResponse();
-        response.setSessionId(memory.getSessionId());
+        response.setChatId(memory.getChatId());
         response.setSummaryHash(safeText(memory.getSummaryHash()));
         response.setSummaryContent(safeText(memory.getSummaryContent()));
         response.setRecentTurns(readJsonObject(memory.getRecentTurnsJson()));
@@ -183,21 +185,21 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         return response;
     }
 
-    private void syncMessages(String sessionId, List<AgentConversationMessageResponse> incomingMessages) {
+    private void syncMessages(String chatId, List<AgentConversationMessageResponse> incomingMessages) {
         List<AgentConversationMessageResponse> normalizedIncoming = normalizeMessages(incomingMessages);
-        List<AgentConversationMessageEntity> existingEntities = messageMapper.findBySessionId(sessionId);
+        List<AgentConversationMessageEntity> existingEntities = messageMapper.findByChatId(chatId);
         List<AgentConversationMessageResponse> existingMessages = toMessageResponses(existingEntities);
         List<Integer> turnNumbers = assignTurnNumbers(normalizedIncoming);
         if (shouldReplaceMessages(existingMessages, normalizedIncoming)) {
-            messageMapper.deleteBySessionId(sessionId);
-            insertMessages(sessionId, normalizedIncoming, turnNumbers, 0);
+            messageMapper.deleteByChatId(chatId);
+            insertMessages(chatId, normalizedIncoming, turnNumbers, 0);
             return;
         }
-        insertMessages(sessionId, normalizedIncoming, turnNumbers, existingMessages.size());
+        insertMessages(chatId, normalizedIncoming, turnNumbers, existingMessages.size());
     }
 
     private void insertMessages(
-            String sessionId,
+            String chatId,
             List<AgentConversationMessageResponse> messages,
             List<Integer> turnNumbers,
             int startIndex
@@ -205,7 +207,7 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         for (int index = startIndex; index < messages.size(); index += 1) {
             AgentConversationMessageResponse item = messages.get(index);
             AgentConversationMessageEntity entity = new AgentConversationMessageEntity();
-            entity.setSessionId(sessionId);
+            entity.setChatId(chatId);
             entity.setTurnNo(turnNumbers.get(index));
             entity.setRole("user".equalsIgnoreCase(item.getType()) ? "user" : "assistant");
             entity.setContent(safeText(item.getContent()));
@@ -232,22 +234,22 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         return false;
     }
 
-    private void syncVisibleEvents(String sessionId, List<Map<String, Object>> incomingEventLogs) {
+    private void syncVisibleEvents(String chatId, List<Map<String, Object>> incomingEventLogs) {
         List<Map<String, Object>> normalizedIncoming = normalizeEventLogs(incomingEventLogs);
-        List<Map<String, Object>> existingVisible = readVisibleEvents(sessionId);
+        List<Map<String, Object>> existingVisible = readVisibleEvents(chatId);
         if (shouldReplaceEvents(existingVisible, normalizedIncoming)) {
-            eventMapper.deleteBySessionId(sessionId);
-            insertVisibleEvents(sessionId, normalizedIncoming, 0);
+            eventMapper.deleteByChatId(chatId);
+            insertVisibleEvents(chatId, normalizedIncoming, 0);
             return;
         }
-        insertVisibleEvents(sessionId, normalizedIncoming, existingVisible.size());
+        insertVisibleEvents(chatId, normalizedIncoming, existingVisible.size());
     }
 
-    private void insertVisibleEvents(String sessionId, List<Map<String, Object>> events, int startIndex) {
+    private void insertVisibleEvents(String chatId, List<Map<String, Object>> events, int startIndex) {
         for (int index = startIndex; index < events.size(); index += 1) {
             Map<String, Object> item = events.get(index);
             AgentConversationEventEntity entity = new AgentConversationEventEntity();
-            entity.setSessionId(sessionId);
+            entity.setChatId(chatId);
             entity.setTurnNo(null);
             entity.setEventType(safeText(valueOf(item.get("type"))));
             entity.setPayloadJson(writeJson(item, "{}"));
@@ -274,8 +276,8 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         return false;
     }
 
-    private void syncStateSnapshotEvent(String sessionId, AgentConversationUpsertRequest request) {
-        eventMapper.deleteBySessionIdAndType(sessionId, STATE_SNAPSHOT_EVENT_TYPE);
+    private void syncStateSnapshotEvent(String chatId, AgentConversationUpsertRequest request) {
+        eventMapper.deleteByChatIdAndType(chatId, STATE_SNAPSHOT_EVENT_TYPE);
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("jobId", request.getJobId());
         payload.put("selectedEvaluationMode", safeText(request.getSelectedEvaluationMode()));
@@ -286,7 +288,7 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         payload.put("comprehensiveState", request.getComprehensiveState() == null ? Map.of() : request.getComprehensiveState());
 
         AgentConversationEventEntity snapshotEvent = new AgentConversationEventEntity();
-        snapshotEvent.setSessionId(sessionId);
+        snapshotEvent.setChatId(chatId);
         snapshotEvent.setTurnNo(null);
         snapshotEvent.setEventType(STATE_SNAPSHOT_EVENT_TYPE);
         snapshotEvent.setPayloadJson(writeJson(payload, "{}"));
@@ -294,9 +296,9 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         eventMapper.insert(snapshotEvent);
     }
 
-    private List<Map<String, Object>> readVisibleEvents(String sessionId) {
+    private List<Map<String, Object>> readVisibleEvents(String chatId) {
         List<Map<String, Object>> result = new ArrayList<>();
-        for (AgentConversationEventEntity item : eventMapper.findBySessionId(sessionId)) {
+        for (AgentConversationEventEntity item : eventMapper.findByChatId(chatId)) {
             if (STATE_SNAPSHOT_EVENT_TYPE.equals(item.getEventType())) {
                 continue;
             }
@@ -313,8 +315,8 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         return result;
     }
 
-    private Map<String, Object> readStateSnapshot(String sessionId) {
-        AgentConversationEventEntity snapshot = eventMapper.findLatestBySessionIdAndType(sessionId, STATE_SNAPSHOT_EVENT_TYPE);
+    private Map<String, Object> readStateSnapshot(String chatId) {
+        AgentConversationEventEntity snapshot = eventMapper.findLatestByChatIdAndType(chatId, STATE_SNAPSHOT_EVENT_TYPE);
         return readJsonMap(snapshot == null ? null : snapshot.getPayloadJson());
     }
 
@@ -422,7 +424,7 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         normalized.put("type", safeText(valueOf(item == null ? null : item.get("type"))));
         normalized.put("time", safeText(valueOf(item == null ? null : item.get("time"))));
         normalized.put("source", safeText(valueOf(item == null ? null : item.get("source"))));
-        normalized.put("sessionId", safeText(valueOf(item == null ? null : item.get("sessionId"))));
+        normalized.put("chatId", safeText(valueOf(item == null ? null : item.get("chatId"))));
         normalized.put("jobId", safeText(valueOf(item == null ? null : item.get("jobId"))));
         normalized.put("module", safeText(valueOf(item == null ? null : item.get("module"))));
         normalized.put("mode", safeText(valueOf(item == null ? null : item.get("mode"))));
@@ -526,12 +528,12 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         }
     }
 
-    private AgentConversationSessionEntity findOwnedSession(Long userId, String sessionId) {
-        String safeSessionId = safeText(sessionId);
-        if (safeSessionId.isBlank()) {
+    private AgentConversationSessionEntity findOwnedSession(Long userId, String conversationId) {
+        String safeConversationId = safeText(conversationId);
+        if (safeConversationId.isBlank()) {
             return null;
         }
-        return sessionMapper.findByUserAndSessionId(userId, safeSessionId);
+        return sessionMapper.findByUserAndConversationId(userId, safeConversationId);
     }
 
     private Map<String, Object> castMap(Map<?, ?> source) {
@@ -585,6 +587,16 @@ public class AgentConversationServiceImpl implements AgentConversationService {
     private String normalizeAgentKey(String agentKey) {
         String safe = safeText(agentKey);
         return safe.isBlank() ? DEFAULT_AGENT_KEY : safe;
+    }
+
+    private String resolveIncomingConversationId(AgentConversationUpsertRequest request) {
+        return safeText(request.getChatId());
+    }
+
+    private String generateChatId() {
+        long timestamp = System.currentTimeMillis();
+        int suffix = ThreadLocalRandom.current().nextInt(10000, 100000);
+        return Long.toString(timestamp) + suffix;
     }
 
     private String normalizeMessageType(String type) {

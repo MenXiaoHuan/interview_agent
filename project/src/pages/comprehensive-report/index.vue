@@ -27,11 +27,6 @@
 
     <!-- 主内容区域 -->
     <div class="main-content">
-      <!-- 返回按钮 -->
-      <div class="back-button" @click="handleBack">
-        <div class="custom-back-arrow"></div>
-      </div>
-
       <!-- 全息投影标题 -->
       <div class="holographic-header">
         <div class="title-container">
@@ -197,7 +192,7 @@
                 <div class="button-glow"></div>
               </div>
             </button>
-            <p class="footer-text">&copy; 2025 AIview. All rights reserved.</p>
+            <p class="footer-text">&copy; 2026 梦之队 All rights reserved.</p>
           </div>
         </div>
         <div class="hologram-glow"></div>
@@ -207,7 +202,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { onLoad } from '@dcloudio/uni-app';
 import { getComprehensiveReportAnalysis, saveComprehensiveReportHistory } from '@/utils/api';
@@ -215,6 +210,13 @@ import { useUserStore } from '@/stores/user';
 import { useJobStore } from '@/stores/job';
 import { storeToRefs } from 'pinia';
 import SmartIcon from '@/components/SmartIcon.vue';
+import {
+  createDefaultComprehensiveState,
+  clearActiveComprehensiveAssessment,
+  ensureActiveComprehensiveAssessmentSession,
+  normalizeComprehensiveState,
+  updateComprehensiveAssessmentState
+} from '@/utils/comprehensive-assessment';
 
 const router = useRouter();
 const route = useRoute();
@@ -226,6 +228,7 @@ const { isEyeCareMode } = storeToRefs(userStore);
 const jobId = ref(null);
 const reportType = ref('overall'); // 'overall', 'resume', 'questions', 'audio'
 const reportId = ref(null); // Corresponding ID for individual reports
+const assessmentId = ref('');
 
 const resumeScore = ref(0);
 const questionsScore = ref(0);
@@ -238,9 +241,6 @@ const audioCompleted = ref(false);
 // AI分析相关状态
 const aiAnalysisLoading = ref(false);
 const aiAnalysisResult = ref(null);
-const strengthAnalysis = ref([]);
-const improvementAnalysis = ref([]);
-const learningPathRecommendation = ref('');
 
 // 加载相关状态
 const loadingProgress = ref(0);
@@ -336,9 +336,22 @@ const questionsStatusText = computed(() => questionsCompleted.value ? '已完成
 const audioStatusText = computed(() => audioCompleted.value ? '已完成' : '未完成');
 
 // Methods
-const handleBack = () => {
-  // 跳转到 interview-ai 页面，保留 jobId
-  router.replace(`/pages/interview-ai/index?jobId=${jobId.value}`);
+const buildInterviewAiCompletionUrl = () => {
+  const query = [];
+  const safeChatId = String(route.query.chatId || '').trim();
+  const safeJobId = String(jobId.value || '').trim();
+  if (safeChatId) {
+    query.push(`chatId=${encodeURIComponent(safeChatId)}`);
+  }
+  if (safeJobId) {
+    query.push(`jobId=${encodeURIComponent(safeJobId)}`);
+  }
+  query.push('autoOpen=1');
+  query.push('completedType=report');
+  query.push('mode=COMPREHENSIVE');
+  query.push(`score=${encodeURIComponent(String(totalScore.value || 0))}`);
+  query.push(`timestamp=${encodeURIComponent(String(Date.now()))}`);
+  return `/pages/interview-ai/index?${query.join('&')}`;
 };
 
 // 新增保存loading状态
@@ -351,19 +364,14 @@ const saveReportAndJump = async () => {
     // 直接保存AI分析结果到历史（假设aiAnalysisResult已存在）
     await saveComprehensiveReport(aiAnalysisResult.value);
     updateInterviewState();
-
-    // 设置综合报告已完成状态并保存到本地存储
-    let state = uni.getStorageSync('comprehensiveTestState');
-    if (state) {
-      try {
-        state = JSON.parse(state);
-        state.overall = state.overall || {};
-        state.overall.status = 'completed';
-        uni.setStorageSync('comprehensiveTestState', JSON.stringify(state));
-      } catch (e) {
-        // ignore
-      }
-    }
+    updateComprehensiveAssessmentState(
+      jobId.value,
+      assessmentId.value,
+      createDefaultComprehensiveState(),
+      { createIfMissing: false }
+    );
+    clearActiveComprehensiveAssessment(jobId.value);
+    assessmentId.value = '';
 
     uni.showToast({
       title: '报告已保存',
@@ -371,44 +379,8 @@ const saveReportAndJump = async () => {
       duration: 1500
     });
     setTimeout(() => {
-      // 只重置模块状态，不清空 overall
-      let state = uni.getStorageSync('comprehensiveTestState');
-      if (state) {
-        try {
-          state = JSON.parse(state);
-          state.resume = {
-            completed: false,
-            inProgress: false,
-            score: 0,
-            analysisId: null,
-            startTime: null,
-            endTime: null,
-            attempts: 0
-          };
-          state.questions = {
-            completed: false,
-            inProgress: false,
-            score: 0,
-            interviewId: null,
-            startTime: null,
-            endTime: null,
-            attempts: 0
-          };
-          state.audio = {
-            completed: false,
-            inProgress: false,
-            score: 0,
-            assessmentId: null,
-            startTime: null,
-            endTime: null,
-            attempts: 0
-          };
-          // 保留 overall.status = 'completed'
-          uni.setStorageSync('comprehensiveTestState', JSON.stringify(state));
-        } catch (e) {}
-      }
       aiAnalysisResult.value = null;
-      router.replace(`/pages/interview-ai/index?jobId=${jobId.value}`);
+      router.replace(buildInterviewAiCompletionUrl());
     }, 1000);
   } catch (error) {
     uni.showToast({
@@ -422,7 +394,7 @@ const saveReportAndJump = async () => {
 };
 
 // 执行综合分析
-const performComprehensiveAnalysis = async (jobInfo, state) => {
+const performComprehensiveAnalysis = async (jobInfo) => {
   try {
     const response = await getComprehensiveReportAnalysis({
       jobName: jobInfo?.name || '未知职位',
@@ -484,9 +456,6 @@ const saveComprehensiveReport = async (analysisResult) => {
     if (!userId) {
       throw new Error('用户未登录');
     }
-    // 从存储中获取各模块分数
-    const savedState = uni.getStorageSync('comprehensiveTestState');
-    const state = savedState ? JSON.parse(savedState) : {};
     // 构建新接口参数
     const params = {
       userId: parseInt(userId),
@@ -543,6 +512,7 @@ onLoad(async (options) => {
     reportId.value = options.id;
     console.log('[Comprehensive Report] Received Report ID:', reportId.value);
   }
+  assessmentId.value = String(options.assessmentId || '').trim();
 
   // 如果没有职位信息，尝试从job store获取
   if (!uni.getStorageSync('currentJobInfo') && jobId.value) {
@@ -565,31 +535,31 @@ onLoad(async (options) => {
 
 const loadReportDetails = async () => {
   try {
-    const savedState = uni.getStorageSync('comprehensiveTestState');
-    if (savedState) {
-      const state = JSON.parse(savedState);
+    const session = ensureActiveComprehensiveAssessmentSession(jobId.value, {
+      assessmentId: assessmentId.value,
+      createIfMissing: false
+    });
+    assessmentId.value = String(session?.assessmentId || assessmentId.value || '').trim();
+    if (session?.state) {
+      const state = normalizeComprehensiveState(session.state);
       console.log('[Comprehensive Report] Loaded state from storage:', state);
 
-      if (state.jobId === jobId.value) {
-        resumeScore.value = state.resume?.score || 0;
-        questionsScore.value = state.questions?.score || 0;
-        audioScore.value = state.audio?.score || 0;
+      resumeScore.value = state.resume?.score || 0;
+      questionsScore.value = state.questions?.score || 0;
+      audioScore.value = state.audio?.score || 0;
 
-        resumeCompleted.value = state.resume?.completed || false;
-        questionsCompleted.value = state.questions?.completed || false;
-        audioCompleted.value = state.audio?.completed || false;
+      resumeCompleted.value = state.resume?.completed || false;
+      questionsCompleted.value = state.questions?.completed || false;
+      audioCompleted.value = state.audio?.completed || false;
 
-        console.log('[Comprehensive Report] Updated individual scores and completion status from storage.');
-        
-        // 如果是综合报告且所有模块都已完成，自动进行AI分析
-        if (reportType.value === 'overall' && resumeCompleted.value && questionsCompleted.value && audioCompleted.value) {
-          await performInitialAnalysis();
-        }
-      } else {
-        console.warn('[Comprehensive Report] Job ID mismatch in stored state.');
+      console.log('[Comprehensive Report] Updated individual scores and completion status from storage.');
+      
+      // 如果是综合报告且所有模块都已完成，自动进行AI分析
+      if (reportType.value === 'overall' && resumeCompleted.value && questionsCompleted.value && audioCompleted.value) {
+        await performInitialAnalysis();
       }
     } else {
-      console.log('[Comprehensive Report] No comprehensiveTestState found in storage.');
+      console.log('[Comprehensive Report] No comprehensive assessment session found in storage.');
     }
   } catch (error) {
     console.error('[Comprehensive Report] Error loading state from localStorage:', error);
@@ -625,8 +595,11 @@ const performInitialAnalysis = async () => {
     const jobInfo = jobInfoStr ? JSON.parse(jobInfoStr) : { name: '', description: '' };
     
     // 获取各模块的详细信息
-    const savedState = uni.getStorageSync('comprehensiveTestState');
-    const state = savedState ? JSON.parse(savedState) : {};
+    const session = ensureActiveComprehensiveAssessmentSession(jobId.value, {
+      assessmentId: assessmentId.value,
+      createIfMissing: false
+    });
+    const state = normalizeComprehensiveState(session?.state);
     
     // 增加等待时间，确保进度条有足够时间显示完整的一轮词条
     await new Promise(resolve => setTimeout(resolve, 2000));

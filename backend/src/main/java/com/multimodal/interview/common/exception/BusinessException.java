@@ -73,4 +73,14 @@ public class BusinessException extends RuntimeException {
     public static BusinessException internalError(String message) {
         return new BusinessException(500, message);
     }
+
+    /**
+     * 创建 503 业务异常。
+     *
+     * @param message 错误信息
+     * @return 业务异常对象
+     */
+    public static BusinessException serviceUnavailable(String message) {
+        return new BusinessException(503, message);
+    }
 }

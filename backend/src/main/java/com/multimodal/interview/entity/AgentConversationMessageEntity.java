@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Data
 public class AgentConversationMessageEntity {
     private Long id;
-    private String sessionId;
+    private String chatId;
     private Integer turnNo;
     private String role;
     private String content;

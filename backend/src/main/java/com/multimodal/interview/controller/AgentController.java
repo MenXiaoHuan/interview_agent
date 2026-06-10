@@ -2,6 +2,7 @@ package com.multimodal.interview.controller;
 
 
 import com.multimodal.interview.reactagent.ReactAgentRouter;
+import com.multimodal.interview.common.exception.BusinessException;
 import com.multimodal.interview.common.result.ApiResponse;
 import com.multimodal.interview.common.result.ResultCode;
 import com.multimodal.interview.dto.AgentRequest;
@@ -62,16 +63,26 @@ public class AgentController {
             Object answer;
             if (request.getAgentKey() != null && !request.getAgentKey().isBlank()) {
                 // 新路径：真正的 Spring AI Alibaba ReactAgent
-                answer = reactAgentRouter.run(request.getAgentKey(), request.getParams(), request.getSessionId());
+                answer = reactAgentRouter.run(request.getAgentKey(), request.getParams(), request.getChatId());
             } else {
                 // 旧路径兼容：直接转发 system/user prompt 到原讯飞实现
                 answer = xunfeiUltraAgentService.getAgentAnswer(request.getSystemContent(), request.getUserContent());
             }
             return ApiResponse.success("获取答案成功", answer);
-        } catch (Exception e) {
-            log.error("Agent调用失败, agentKey={}, sessionId={}, paramsKeys={}",
+        } catch (BusinessException e) {
+            log.warn("Agent调用业务异常, agentKey={}, chatId={}, code={}, message={}",
                     request.getAgentKey(),
-                    request.getSessionId(),
+                    request.getChatId(),
+                    e.getCode(),
+                    e.getMessage());
+            if (e.getCode() == ResultCode.SERVICE_UNAVAILABLE.getCode()) {
+                return ApiResponse.serviceUnavailable("AI 服务当前不可用");
+            }
+            return ApiResponse.error(e.getCode(), e.getMessage());
+        } catch (Exception e) {
+            log.error("Agent调用失败, agentKey={}, chatId={}, paramsKeys={}",
+                    request.getAgentKey(),
+                    request.getChatId(),
                     request.getParams() == null ? "[]" : request.getParams().keySet(),
                     e);
             return ApiResponse.error(ResultCode.INTERNAL_ERROR, "获取答案失败");

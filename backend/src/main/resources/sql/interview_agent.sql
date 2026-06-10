@@ -224,14 +224,14 @@ CREATE TABLE `agent_conversation_session` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `user_id` bigint NOT NULL COMMENT '所属用户 ID',
   `agent_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'Agent 标识',
-  `session_id` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '前端会话 ID',
+  `chat_id` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '后端稳定会话 ID',
   `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '会话标题',
   `preview` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '会话预览',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE KEY `uk_user_session` (`user_id`, `session_id`) USING BTREE,
-  UNIQUE KEY `uk_session_id` (`session_id`) USING BTREE,
+  UNIQUE KEY `uk_user_chat` (`user_id`, `chat_id`) USING BTREE,
+  UNIQUE KEY `uk_chat_id` (`chat_id`) USING BTREE,
   KEY `idx_user_agent` (`user_id`, `agent_key`) USING BTREE,
   KEY `idx_updated_at` (`updated_at`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='Agent 会话主表';
@@ -242,15 +242,15 @@ CREATE TABLE `agent_conversation_session` (
 DROP TABLE IF EXISTS `agent_conversation_message`;
 CREATE TABLE `agent_conversation_message` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `session_id` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '会话 ID',
+  `chat_id` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '会话 ID',
   `turn_no` int DEFAULT NULL COMMENT '对话轮次',
   `role` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'user/assistant/system',
   `content` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '消息内容',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
-  KEY `idx_session_turn` (`session_id`, `turn_no`) USING BTREE,
-  KEY `idx_session_created` (`session_id`, `created_at`) USING BTREE,
-  CONSTRAINT `fk_agent_conversation_message_session_id` FOREIGN KEY (`session_id`) REFERENCES `agent_conversation_session` (`session_id`) ON DELETE CASCADE ON UPDATE RESTRICT
+  KEY `idx_chat_turn` (`chat_id`, `turn_no`) USING BTREE,
+  KEY `idx_chat_created` (`chat_id`, `created_at`) USING BTREE,
+  CONSTRAINT `fk_agent_conversation_message_chat_id` FOREIGN KEY (`chat_id`) REFERENCES `agent_conversation_session` (`chat_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='Agent 会话消息表';
 
 -- ----------------------------
@@ -259,15 +259,15 @@ CREATE TABLE `agent_conversation_message` (
 DROP TABLE IF EXISTS `agent_conversation_event`;
 CREATE TABLE `agent_conversation_event` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `session_id` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '会话 ID',
+  `chat_id` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '会话 ID',
   `turn_no` int DEFAULT NULL COMMENT '关联对话轮次',
   `event_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '事件类型',
   `payload_json` json DEFAULT NULL COMMENT '事件结构化负载',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
-  KEY `idx_session_event` (`session_id`, `event_type`) USING BTREE,
-  KEY `idx_session_created` (`session_id`, `created_at`) USING BTREE,
-  CONSTRAINT `fk_agent_conversation_event_session_id` FOREIGN KEY (`session_id`) REFERENCES `agent_conversation_session` (`session_id`) ON DELETE CASCADE ON UPDATE RESTRICT
+  KEY `idx_chat_event` (`chat_id`, `event_type`) USING BTREE,
+  KEY `idx_chat_created` (`chat_id`, `created_at`) USING BTREE,
+  CONSTRAINT `fk_agent_conversation_event_chat_id` FOREIGN KEY (`chat_id`) REFERENCES `agent_conversation_session` (`chat_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='Agent 会话事件表';
 
 -- ----------------------------
@@ -276,16 +276,16 @@ CREATE TABLE `agent_conversation_event` (
 DROP TABLE IF EXISTS `agent_conversation_memory`;
 CREATE TABLE `agent_conversation_memory` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `session_id` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '会话 ID',
+  `chat_id` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '会话 ID',
   `summary_hash` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '压缩摘要来源哈希',
   `summary_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '历史摘要内容',
   `recent_turns_json` json DEFAULT NULL COMMENT '最近 3 轮对话原文',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE KEY `uk_session_id` (`session_id`) USING BTREE,
+  UNIQUE KEY `uk_chat_id` (`chat_id`) USING BTREE,
   KEY `idx_updated_at` (`updated_at`) USING BTREE,
-  CONSTRAINT `fk_agent_conversation_memory_session_id` FOREIGN KEY (`session_id`) REFERENCES `agent_conversation_session` (`session_id`) ON DELETE CASCADE ON UPDATE RESTRICT
+  CONSTRAINT `fk_agent_conversation_memory_chat_id` FOREIGN KEY (`chat_id`) REFERENCES `agent_conversation_session` (`chat_id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='Agent 会话记忆表';
 
 -- ----------------------------

@@ -334,7 +334,7 @@ type AgentConversationMessageResponse {
 }
 
 type AgentConversationMemoryResponse {
-  sessionId: ID!
+  chatId: ID
   summaryHash: String
   summaryContent: String
   recentTurns: JSON
@@ -344,6 +344,7 @@ type AgentConversationMemoryResponse {
 
 type AgentConversationResponse {
   id: ID!
+  chatId: ID!
   jobId: ID
   agentKey: String
   title: String
@@ -412,9 +413,9 @@ type Query {
 
   chatMessages(days: Int = 1): [ChatMessageView!]!
   agentConversations(agentKey: String): [AgentConversationResponse!]!
-  agentConversationMessages(sessionId: ID!): [AgentConversationMessageResponse!]!
-  agentConversationEvents(sessionId: ID!): JSON!
-  agentConversationMemory(sessionId: ID!): AgentConversationMemoryResponse
+  agentConversationMessages(chatId: ID!): [AgentConversationMessageResponse!]!
+  agentConversationEvents(chatId: ID!): JSON!
+  agentConversationMemory(chatId: ID!): AgentConversationMemoryResponse
 
   comprehensiveResumeRankings(jobId: ID, size: Int = 50): [RankingEntry!]!
   comprehensiveQuestionRankings(jobId: ID, size: Int = 50): [RankingEntry!]!
@@ -492,7 +493,7 @@ type Mutation {
 
   saveChatMessage(input: ChatMessageSaveInput!): ChatMessage!
   upsertAgentConversation(input: AgentConversationUpsertRequest!): AgentConversationResponse!
-  deleteAgentConversation(sessionId: ID!): Boolean!
+  deleteAgentConversation(chatId: ID!): Boolean!
 
   synthesizeSpeech(input: SpeechSynthesisInput!): String!
   analyzeFace(file: Upload!): String!
@@ -751,7 +752,7 @@ input AgentConversationMessageResponseInput {
 }
 
 input AgentConversationUpsertRequest {
-  sessionId: String!
+  chatId: String
   agentKey: String
   jobId: ID
   title: String
@@ -777,7 +778,7 @@ input SpeechSynthesisInput {
 input AgentInput {
   agentKey: String
   params: JSON
-  sessionId: String
+  chatId: String
   systemContent: String
   userContent: String
 }

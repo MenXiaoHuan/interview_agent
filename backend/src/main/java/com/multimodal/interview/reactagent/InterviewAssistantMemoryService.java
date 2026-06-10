@@ -47,17 +47,17 @@ public class InterviewAssistantMemoryService {
         this.objectMapper = objectMapper;
     }
 
-    public Map<String, Object> enrichParams(String sessionId, Map<String, Object> params) {
+    public Map<String, Object> enrichParams(String chatId, Map<String, Object> params) {
         Map<String, Object> enriched = new LinkedHashMap<>(params == null ? Map.of() : params);
         List<Map<String, String>> incomingHistory = normalizeConversationHistory(enriched.get("conversationHistory"));
-        if (sessionId == null || sessionId.isBlank()) {
+        if (chatId == null || chatId.isBlank()) {
             enriched.put("conversationSummary", "");
             enriched.put("conversationHistory", incomingHistory);
             return enriched;
         }
 
-        AgentConversationMemory storedMemory = memoryMapper.findBySessionId(sessionId);
-        List<TurnView> turns = resolveTurns(sessionId, storedMemory, incomingHistory);
+        AgentConversationMemory storedMemory = memoryMapper.findByChatId(chatId);
+        List<TurnView> turns = resolveTurns(chatId, storedMemory, incomingHistory);
         String storedSummary = storedMemory == null ? "" : valueOf(storedMemory.getSummaryContent());
         String summary = storedSummary;
         List<TurnView> turnsForAi = turns;
@@ -65,10 +65,10 @@ public class InterviewAssistantMemoryService {
         if (turns.size() > MAX_TURNS_BEFORE_SUMMARY) {
             List<TurnView> recentTurns = tailTurns(turns, MAX_RECENT_TURNS);
             List<TurnView> earlierTurns = turns.subList(0, Math.max(0, turns.size() - recentTurns.size()));
-            summary = summarizeAndPersist(sessionId, storedMemory, earlierTurns, recentTurns);
+            summary = summarizeAndPersist(chatId, storedMemory, earlierTurns, recentTurns);
             turnsForAi = recentTurns;
         } else {
-            persistMemory(sessionId, storedMemory, "", storedSummary, tailTurns(turns, MAX_RECENT_TURNS));
+            persistMemory(chatId, storedMemory, "", storedSummary, tailTurns(turns, MAX_RECENT_TURNS));
         }
 
         enriched.put("conversationSummary", summary);
@@ -76,11 +76,11 @@ public class InterviewAssistantMemoryService {
         return enriched;
     }
 
-    public void rememberAssistantReply(String sessionId, Map<String, Object> params, String reply) {
-        if (sessionId == null || sessionId.isBlank()) {
+    public void rememberAssistantReply(String chatId, Map<String, Object> params, String reply) {
+        if (chatId == null || chatId.isBlank()) {
             return;
         }
-        AgentConversationMemory storedMemory = memoryMapper.findBySessionId(sessionId);
+        AgentConversationMemory storedMemory = memoryMapper.findByChatId(chatId);
         List<Map<String, String>> history = normalizeConversationHistory(params == null ? null : params.get("conversationHistory"));
         if (reply != null && !reply.isBlank()) {
             history = new ArrayList<>(history);
@@ -88,15 +88,15 @@ public class InterviewAssistantMemoryService {
         }
         List<TurnView> turns = buildTurnsFromHistory(history);
         String summary = params == null ? "" : valueOf(params.get("conversationSummary"));
-        persistMemory(sessionId, storedMemory, "", summary, tailTurns(turns, MAX_RECENT_TURNS));
+        persistMemory(chatId, storedMemory, "", summary, tailTurns(turns, MAX_RECENT_TURNS));
     }
 
     private List<TurnView> resolveTurns(
-            String sessionId,
+            String chatId,
             AgentConversationMemory storedMemory,
             List<Map<String, String>> incomingHistory
     ) {
-        List<TurnView> dbTurns = buildTurnsFromMessages(messageMapper.findBySessionId(sessionId));
+        List<TurnView> dbTurns = buildTurnsFromMessages(messageMapper.findByChatId(chatId));
         List<TurnView> incomingTurns = buildTurnsFromHistory(incomingHistory);
         if (!incomingTurns.isEmpty()) {
             if (incomingTurns.size() > dbTurns.size() || flattenTurns(incomingTurns).size() > flattenTurns(dbTurns).size()) {
@@ -191,14 +191,14 @@ public class InterviewAssistantMemoryService {
     }
 
     private String summarizeAndPersist(
-            String sessionId,
+            String chatId,
             AgentConversationMemory storedMemory,
             List<TurnView> earlierTurns,
             List<TurnView> recentTurns
     ) {
         if (earlierTurns.isEmpty()) {
             String storedSummary = storedMemory == null ? "" : valueOf(storedMemory.getSummaryContent());
-            persistMemory(sessionId, storedMemory, "", storedSummary, recentTurns);
+            persistMemory(chatId, storedMemory, "", storedSummary, recentTurns);
             return storedSummary;
         }
 
@@ -206,12 +206,12 @@ public class InterviewAssistantMemoryService {
         if (storedMemory != null
                 && Objects.equals(sourceHash, valueOf(storedMemory.getSummaryHash()))
                 && hasText(storedMemory.getSummaryContent())) {
-            persistMemory(sessionId, storedMemory, sourceHash, storedMemory.getSummaryContent(), recentTurns);
+            persistMemory(chatId, storedMemory, sourceHash, storedMemory.getSummaryContent(), recentTurns);
             return storedMemory.getSummaryContent().trim();
         }
 
         String summary = summarizeTurns(earlierTurns);
-        persistMemory(sessionId, storedMemory, sourceHash, summary, recentTurns);
+        persistMemory(chatId, storedMemory, sourceHash, summary, recentTurns);
         return summary;
     }
 
@@ -281,7 +281,7 @@ public class InterviewAssistantMemoryService {
     }
 
     private void persistMemory(
-            String sessionId,
+            String chatId,
             AgentConversationMemory storedMemory,
             String summaryHash,
             String summaryContent,
@@ -289,7 +289,7 @@ public class InterviewAssistantMemoryService {
     ) {
         try {
             AgentConversationMemory target = storedMemory == null ? new AgentConversationMemory() : storedMemory;
-            target.setSessionId(sessionId);
+            target.setChatId(chatId);
             target.setSummaryHash(summaryHash);
             target.setSummaryContent(summaryContent == null ? "" : summaryContent.trim());
             target.setRecentTurnsJson(objectMapper.writeValueAsString(serializeTurns(recentTurns)));

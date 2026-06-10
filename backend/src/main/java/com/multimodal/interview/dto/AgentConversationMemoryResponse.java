@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
  */
 @Data
 public class AgentConversationMemoryResponse {
-    private String sessionId;
+    private String chatId;
     private String summaryHash;
     private String summaryContent;
     private Object recentTurns;

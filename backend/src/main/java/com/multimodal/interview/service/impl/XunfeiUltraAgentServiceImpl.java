@@ -1,5 +1,6 @@
 package com.multimodal.interview.service.impl;
 
+import com.multimodal.interview.common.exception.BusinessException;
 import com.multimodal.interview.service.XunfeiUltraAgentService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
@@ -51,7 +52,7 @@ public class XunfeiUltraAgentServiceImpl implements XunfeiUltraAgentService {
             return extractAnswerFromResponse(result);
         } catch (IOException e) {
             log.error("调用讯飞API失败", e);
-            return "";
+            throw BusinessException.serviceUnavailable("AI 服务当前不可用");
         }
     }
 
@@ -78,7 +79,7 @@ public class XunfeiUltraAgentServiceImpl implements XunfeiUltraAgentService {
     private String extractAnswerFromResponse(String result) {
         if (result == null || result.trim().isEmpty()) {
             log.warn("响应内容为空，无法解析");
-            return "";
+            throw BusinessException.serviceUnavailable("AI 服务当前不可用");
         }
 
         try {
@@ -89,36 +90,41 @@ public class XunfeiUltraAgentServiceImpl implements XunfeiUltraAgentService {
             if (code != 0) {
                 String errorMsg = jsonResult.optString("message", "未知错误");
                 log.error("API 响应错误: code={}, message={}", code, errorMsg);
-                return "";
+                throw BusinessException.serviceUnavailable("AI 服务当前不可用");
             }
 
             // 安全地获取 choices 数组
             JSONArray choices = jsonResult.optJSONArray("choices");
             if (choices == null || choices.length() == 0) {
                 log.error("响应中缺少 choices 数组或数组为空: {}", result);
-                return "";
+                throw BusinessException.serviceUnavailable("AI 服务当前不可用");
             }
 
             // 获取第一个 choice 对象
             JSONObject firstChoice = choices.optJSONObject(0);
             if (firstChoice == null) {
                 log.error("choices 数组的第一个元素格式错误: {}", result);
-                return "";
+                throw BusinessException.serviceUnavailable("AI 服务当前不可用");
             }
 
             // 获取 message 对象
             JSONObject message = firstChoice.optJSONObject("message");
             if (message == null) {
                 log.error("choice 对象中缺少 message 字段: {}", result);
-                return "";
+                throw BusinessException.serviceUnavailable("AI 服务当前不可用");
             }
 
             // 获取 content 字段（使用 optString 避免异常）
-            return message.optString("content", "");
+            String content = message.optString("content", "");
+            if (content == null || content.isBlank()) {
+                log.error("message.content 为空: {}", result);
+                throw BusinessException.serviceUnavailable("AI 服务当前不可用");
+            }
+            return content;
 
         } catch (Exception e) {
             log.error("解析响应内容时发生异常: {}", result, e);
-            return "";
+            throw BusinessException.serviceUnavailable("AI 服务当前不可用");
         }
     }
 }

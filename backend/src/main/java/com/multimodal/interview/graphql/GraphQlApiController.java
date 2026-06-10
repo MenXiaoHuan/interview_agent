@@ -338,18 +338,18 @@ public class GraphQlApiController extends GraphQlSupport {
     }
 
     @QueryMapping
-    public List<AgentConversationMessageResponse> agentConversationMessages(@Argument String sessionId) {
-        return unwrap(agentConversationController.listCurrentUserConversationMessages(sessionId, requireAuthentication()));
+    public List<AgentConversationMessageResponse> agentConversationMessages(@Argument String chatId) {
+        return unwrap(agentConversationController.listCurrentUserConversationMessages(chatId, requireAuthentication()));
     }
 
     @QueryMapping
-    public List<Map<String, Object>> agentConversationEvents(@Argument String sessionId) {
-        return unwrap(agentConversationController.listCurrentUserConversationEvents(sessionId, requireAuthentication()));
+    public List<Map<String, Object>> agentConversationEvents(@Argument String chatId) {
+        return unwrap(agentConversationController.listCurrentUserConversationEvents(chatId, requireAuthentication()));
     }
 
     @QueryMapping
-    public AgentConversationMemoryResponse agentConversationMemory(@Argument String sessionId) {
-        return unwrap(agentConversationController.getCurrentUserConversationMemory(sessionId, requireAuthentication()));
+    public AgentConversationMemoryResponse agentConversationMemory(@Argument String chatId) {
+        return unwrap(agentConversationController.getCurrentUserConversationMemory(chatId, requireAuthentication()));
     }
 
     @QueryMapping
@@ -682,8 +682,8 @@ public class GraphQlApiController extends GraphQlSupport {
     }
 
     @MutationMapping
-    public Boolean deleteAgentConversation(@Argument String sessionId) {
-        return unwrapSuccess(agentConversationController.deleteCurrentUserConversation(sessionId, requireAuthentication()));
+    public Boolean deleteAgentConversation(@Argument String chatId) {
+        return unwrapSuccess(agentConversationController.deleteCurrentUserConversation(chatId, requireAuthentication()));
     }
 
     @MutationMapping

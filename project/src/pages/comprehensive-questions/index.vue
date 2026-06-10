@@ -34,13 +34,6 @@
     <div class="content-wrapper">
       <!-- 顶部导航 -->
       <div class="top-nav">
-        <div class="back-button" @click="handleBack">
-          <svg class="back-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <span>返回</span>
-        </div>
         <div class="timer">
           <SmartIcon name="fas fa-clock" />
           <span>{{ formatTime(remainingTime) }}</span>
@@ -282,13 +275,17 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import request from '@/utils/request';
 import { generateComprehensiveQuestions, scoreScenarioQuestions, getQuestionAnalysisByAi } from '@/utils/api';
 import { getJobInfo, saveComprehensiveQuestionHistory } from '@/utils/api';
 import { getUserSession } from '@/utils/user-session';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
 import SmartIcon from '@/components/SmartIcon.vue';
+import {
+  ensureActiveComprehensiveAssessmentSession,
+  normalizeComprehensiveState,
+  updateComprehensiveAssessmentState
+} from '@/utils/comprehensive-assessment';
 
 const router = useRouter();
 const route = useRoute();
@@ -309,6 +306,7 @@ const errorMessage = ref('');
 const isAnalyzing = ref(false); // 是否正在AI分析中
 const analysisResults = ref({}); // 存储每道题的AI解析结果
 const analyzingText = ref('AI批阅中...');
+const assessmentId = ref('');
 
 // 将 accuracy 和 score 改为 ref 变量，用于存储写死的分数
 const accuracy = ref(0);
@@ -328,31 +326,59 @@ const isLastQuestion = computed(() => {
   return currentQuestionIndex.value === questions.value.length - 1;
 });
 
-const buildInterviewAiReturnUrl = (extraQuery = {}) => {
-  const query = [];
-  query.push('autoOpen=1');
-  let safeSessionId = String(route.query.sessionId || '').trim();
-  if (!safeSessionId) {
-    try {
-      safeSessionId = String(sessionStorage.getItem('activeAiConversationSessionId') || '').trim();
-    } catch (_) {
-      safeSessionId = '';
-    }
-  }
+const shouldReturnToAiChat = () => {
+  return String(route.query.from || '').trim() === 'ai-interview'
+    || String(route.query.autoOpen || '').trim() === '1';
+};
+
+const buildNextComprehensiveStepUrl = () => {
   const safeJobId = String(route.query.jobId || '').trim();
-  if (safeSessionId) {
-    query.push(`sessionId=${encodeURIComponent(safeSessionId)}`);
-  }
+  const query = [];
   if (safeJobId) {
     query.push(`jobId=${encodeURIComponent(safeJobId)}`);
   }
-  Object.entries(extraQuery).forEach(([key, value]) => {
-    const safeValue = String(value || '').trim();
-    if (safeValue) {
-      query.push(`${encodeURIComponent(key)}=${encodeURIComponent(safeValue)}`);
+  if (assessmentId.value) {
+    query.push(`assessmentId=${encodeURIComponent(assessmentId.value)}`);
+  }
+  const returnToAi = shouldReturnToAiChat();
+  query.push(`from=${encodeURIComponent(returnToAi ? 'ai-interview' : 'interview-main')}`);
+  query.push(`autoOpen=${returnToAi ? '1' : '0'}`);
+  if (returnToAi) {
+    const safeSessionId = String(route.query.chatId || '').trim();
+    if (safeSessionId) {
+      query.push(`chatId=${encodeURIComponent(safeSessionId)}`);
     }
+  }
+  query.push('mode=COMPREHENSIVE');
+  return `/pages/comprehensive-scenario/index?${query.join('&')}`;
+};
+
+const initializeAssessmentSession = () => {
+  const safeJobId = String(route.query.jobId || getJobIdFromUrlOrStorage() || '').trim();
+  if (!safeJobId) {
+    assessmentId.value = '';
+    return null;
+  }
+  const session = ensureActiveComprehensiveAssessmentSession(safeJobId, {
+    assessmentId: route.query.assessmentId || assessmentId.value || '',
+    createIfMissing: true
   });
-  return `/pages/interview-ai/index${query.length ? `?${query.join('&')}` : ''}`;
+  assessmentId.value = String(session?.assessmentId || '').trim();
+  if (!assessmentId.value) {
+    return session;
+  }
+  return updateComprehensiveAssessmentState(safeJobId, assessmentId.value, (currentState) => {
+    const nextState = normalizeComprehensiveState(currentState);
+    if (!nextState.questions.completed) {
+      nextState.questions.inProgress = true;
+      nextState.questions.startTime = nextState.questions.startTime || new Date().toISOString();
+    }
+    nextState.overall.startTime = nextState.overall.startTime || new Date().toISOString();
+    if (nextState.overall.status === 'not_started') {
+      nextState.overall.status = 'in_progress';
+    }
+    return nextState;
+  });
 };
 
 // 检查未完成的题目
@@ -626,22 +652,6 @@ const completeTest = () => {
   uni.showToast({ title: '答题完成，请点击下一步查看结果', icon: 'none', duration: 2000 });
 };
 
-const handleBack = () => {
-  if (!isComplete.value) {
-    uni.showModal({
-      title: '提示',
-      content: '确定要退出测试吗？已答题目将不会保存。',
-      success: (res) => {
-        if (res.confirm) {
-          router.replace(buildInterviewAiReturnUrl());
-        }
-      }
-    });
-  } else {
-    router.replace(buildInterviewAiReturnUrl());
-  }
-};
-
 const getJobIdFromUrlOrStorage = () => {
   let urlJobId = null;
   try {
@@ -689,62 +699,33 @@ const goToAudioAssessment = async () => {
     const timestamp = Date.now();
     const endTime = new Date().toISOString();
     const startTime = uni.getStorageSync('questionsStartTime') || new Date().toISOString();
-    const aiReturnUrl = buildInterviewAiReturnUrl({
-      completedType: 'questions',
-      mode: 'COMPREHENSIVE',
-      score: score.value,
-      timestamp
-    });
+    const targetUrl = buildNextComprehensiveStepUrl();
     
     // 计算总用时（秒）
     const startTimeObj = new Date(startTime);
     const endTimeObj = new Date(endTime);
     const totalTime = Math.floor((endTimeObj - startTimeObj) / 1000);
     
-    // 先读取旧状态
-    let old = {};
-    const savedState = uni.getStorageSync('comprehensiveTestState');
-    if (savedState) {
-      old = JSON.parse(savedState);
-    }
-    // 构造新状态，questions 字段只用当前作答
-    let state = {
-      resume: old.resume || {
-        completed: false,
+    const savedSession = updateComprehensiveAssessmentState(jobId, assessmentId.value, (currentState) => {
+      const nextState = normalizeComprehensiveState(currentState);
+      nextState.questions = {
+        ...nextState.questions,
+        completed: true,
         inProgress: false,
-        score: 0,
-        analysisId: null,
-        startTime: null,
-        endTime: null,
-        attempts: 0
-      },
-      questions: {
-      completed: true,
-      inProgress: false,
-        score: score.value,
-        interviewId: 'interview_' + timestamp,
-      endTime: endTime,
-        startTime: old.questions?.startTime || startTime,
-        attempts: (old.questions?.attempts || 0) + 1
-      },
-      audio: old.audio || {
-        completed: false,
-        inProgress: false,
-        score: 0,
-        assessmentId: null,
-        startTime: null,
-        endTime: null,
-        attempts: 0
-      },
-      overall: old.overall || {
-        startTime: new Date().toISOString(),
-        endTime: null,
-        totalScore: 0,
+        score: Math.max(0, Number(score.value) || 0),
+        interviewId: nextState.questions.interviewId || `interview_${timestamp}`,
+        startTime: nextState.questions.startTime || startTime,
+        endTime,
+        attempts: Math.max(1, Number(nextState.questions.attempts || 0) + 1)
+      };
+      nextState.overall = {
+        ...nextState.overall,
+        startTime: nextState.overall.startTime || startTime,
         status: 'in_progress'
-      },
-      lastUpdated: new Date().toISOString(),
-      jobId: jobId
-    };
+      };
+      return nextState;
+    });
+    assessmentId.value = String(savedSession?.assessmentId || assessmentId.value || '').trim();
     
     // 保存问题综合评估历史到后端
     try {
@@ -801,42 +782,52 @@ const goToAudioAssessment = async () => {
   setTimeout(() => {
       try {
         uni.redirectTo({
-          url: aiReturnUrl,
+          url: targetUrl,
           success: () => {},
           fail: (err) => {
-            uni.navigateBack({
-              delta: 1,
-              success: () => {
-                try {
-                  uni.$emit && uni.$emit('questionsCompleted', {
-                    score: score.value,
-                    timestamp,
-                    sessionId: String(route.query.sessionId || '').trim()
-                  });
-                } catch (emitError) {}
-              },
-              fail: (backErr) => {
-                try {
-                  router.replace(aiReturnUrl);
-                } catch (routerErr) {
-                  setTimeout(() => {
-                    window.location.href = `/#${aiReturnUrl}`;
-                  }, 500);
+            if (shouldReturnToAiChat()) {
+              uni.navigateBack({
+                delta: 1,
+                success: () => {
+                  try {
+                    uni.$emit && uni.$emit('questionsCompleted', {
+                      score: score.value,
+                      timestamp,
+                      chatId: String(route.query.chatId || '').trim()
+                    });
+                  } catch (emitError) {}
+                },
+                fail: () => {
+                  try {
+                    router.replace(targetUrl);
+                  } catch (routerErr) {
+                    setTimeout(() => {
+                      window.location.href = `/#${targetUrl}`;
+                    }, 500);
+                  }
                 }
-              }
-            });
+              });
+              return;
+            }
+            try {
+              router.replace(targetUrl);
+            } catch (routerErr) {
+              setTimeout(() => {
+                window.location.href = `/#${targetUrl}`;
+              }, 500);
+            }
           }
         });
       } catch (error) {
         setTimeout(() => {
-          router.replace(aiReturnUrl);
+          router.replace(targetUrl);
         }, 2000);
     }
   }, 1500);
   } catch (error) {
     uni.showToast({ title: '状态保存失败，请重试', icon: 'error' });
     setTimeout(() => {
-      router.replace(buildInterviewAiReturnUrl());
+          router.replace(buildNextComprehensiveStepUrl());
     }, 2000);
   }
 };
@@ -1025,6 +1016,7 @@ async function retryGenerateQuestions() {
 }
 
 onMounted(() => {
+  initializeAssessmentSession();
   generateQuestionsByAI();
 });
 

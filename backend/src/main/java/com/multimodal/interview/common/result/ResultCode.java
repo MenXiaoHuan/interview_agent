@@ -9,6 +9,7 @@ public enum ResultCode {
     UNAUTHORIZED(401, "未认证或token过期"),
     FORBIDDEN(403, "没有权限"),
     NOT_FOUND(404, "资源不存在"),
+    SERVICE_UNAVAILABLE(503, "AI 服务当前不可用"),
     SYSTEM_ERROR(500, "系统错误"),
     INTERNAL_ERROR(500, "服务器内部错误");
 

@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Data
 public class AgentConversationEventEntity {
     private Long id;
-    private String sessionId;
+    private String chatId;
     private Integer turnNo;
     private String eventType;
     private String payloadJson;

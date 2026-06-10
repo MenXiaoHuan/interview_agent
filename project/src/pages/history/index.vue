@@ -265,10 +265,11 @@ import * as echarts from 'echarts';
 import { API } from '@/utils/api';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { getUserSession, subscribeUserSession, getSessionToken } from '@/utils/user-session';
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const { isEyeCareMode } = storeToRefs(userStore);
 const activeTab = ref('comprehensive');
@@ -284,6 +285,7 @@ const showSpecializedModal = ref(false);
 const selectedSpecialized = ref('');
 const chartRef = ref(null);
 let chart = null;
+const hasAppliedRouteAutoOpen = ref(false);
 
 // 综合记录详情弹窗相关状态
 const showComprehensiveDetail = ref(false);
@@ -511,7 +513,38 @@ const fetchHistoryData = async () => {
     error.value = err.message || '加载历史记录失败';
   } finally {
     isLoading.value = false;
+    await nextTick();
+    applyRoutePreset();
   }
+};
+
+const normalizeHistoryTab = (value) => {
+  const safeValue = String(value || '').trim().toLowerCase();
+  return ['comprehensive', 'specialized'].includes(safeValue) ? safeValue : '';
+};
+
+const normalizeSpecializedType = (value) => {
+  const safeValue = String(value || '').trim().toLowerCase();
+  return ['resume', 'questions', 'audio'].includes(safeValue) ? safeValue : '';
+};
+
+const applyRoutePreset = () => {
+  const presetType = normalizeSpecializedType(route.query.type);
+  const presetTab = normalizeHistoryTab(route.query.tab);
+  const shouldAutoOpen = String(route.query.autoOpen || '').trim() === '1';
+
+  if (presetType) {
+    activeTab.value = 'specialized';
+    selectedSpecialized.value = presetType;
+  } else if (presetTab) {
+    activeTab.value = presetTab;
+  }
+
+  if (!presetType || !shouldAutoOpen || hasAppliedRouteAutoOpen.value) {
+    return;
+  }
+  hasAppliedRouteAutoOpen.value = true;
+  showSpecializedHistory(presetType);
 };
 
 const getLatestScore = (type) => {
@@ -674,8 +707,16 @@ onMounted(() => {
   console.log('History page mounted.'); // 添加日志
   userStore.loadUserFromStorage(); // 在组件挂载时加载用户数据
   initEyeCareMode(); // 初始化护眼模式
+  applyRoutePreset();
   try { subscribeUserSession(() => { fetchHistoryData(); }) } catch {}
 });
+
+watch(
+  () => [route.query.tab, route.query.type, route.query.autoOpen],
+  () => {
+    applyRoutePreset();
+  }
+);
 
 // Watch for window resize to handle chart responsiveness
 const handleResize = () => {

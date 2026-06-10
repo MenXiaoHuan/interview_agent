@@ -16,11 +16,11 @@ public interface AgentConversationService {
 
     AgentConversationResponse upsertUserConversation(Long userId, AgentConversationUpsertRequest request);
 
-    void deleteUserConversation(Long userId, String sessionId);
+    void deleteUserConversation(Long userId, String chatId);
 
-    List<AgentConversationMessageResponse> listUserConversationMessages(Long userId, String sessionId);
+    List<AgentConversationMessageResponse> listUserConversationMessages(Long userId, String chatId);
 
-    List<Map<String, Object>> listUserConversationEvents(Long userId, String sessionId);
+    List<Map<String, Object>> listUserConversationEvents(Long userId, String chatId);
 
-    AgentConversationMemoryResponse getUserConversationMemory(Long userId, String sessionId);
+    AgentConversationMemoryResponse getUserConversationMemory(Long userId, String chatId);
 }

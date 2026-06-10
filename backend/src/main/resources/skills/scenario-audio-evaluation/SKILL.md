@@ -13,6 +13,15 @@ description: Evaluate spoken scenario answers on content, delivery, interview re
 ## 输入
 - `questions`: 评测条目列表（每项包含题干、用户回答、必要的识别文本等信息）
 
+## 零分硬规则
+- 先判断每题是否存在有效作答，`answer` 为空、仅空白、仅表示“无回答/没说/不知道/跳过”等，都视为未作答
+- 未作答题必须返回 `score = 0`
+- 未作答题不得编造“亮点”或正向评价，`strengths` 必须为空数组
+- 未作答题的 `comment` 要明确说明“本题未作答，未计分”
+- 未作答题的 `weaknesses` 必须直接指出“未提供有效回答”
+- 如果全部题目都未作答，则总分、各维度分、表达层分数都必须为 `0`
+- 如果只有部分题目作答，只能基于已作答题给出评价，不能把未作答题按低分但非零分处理
+
 ## 评估顺序
 每题先看：
 - 是否答到题目核心
@@ -48,6 +57,7 @@ description: Evaluate spoken scenario answers on content, delivery, interview re
 - 点评优先针对题目核心，不要写成统一模板
 - 如果回答内容弱但表达尚可，要分别体现，不要混成一句空话
 - 如果回答不错，也要指出更高级的优化空间
+- 如果题目未作答，则不要套用本节常规要求，直接按“未作答零分模板”输出
 
 ## 表达层反馈要求
 ### `pronunciation`
@@ -66,3 +76,7 @@ description: Evaluate spoken scenario answers on content, delivery, interview re
 - 只提最优先的 2 个改进方向
 - 必须是最能拉升整体表现的关键动作
 - 不要写泛化建议，如“多练习表达”
+
+## 输出一致性要求
+- `questions[].score`、总分和维度分必须前后一致，不能出现未作答题得分大于 0 的情况
+- 不能因为语气自然、音频时长存在、或识别出无意义口语，就给未作答题正分

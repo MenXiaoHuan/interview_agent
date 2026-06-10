@@ -2,7 +2,7 @@
   <div class="landing-container">
     
 
-  <section class="hero-slider">
+  <section class="hero-slider" :class="{ ready: sliderReady }">
     <div v-for="(src,i) in slides" :key="i" class="slide" :style="{ backgroundImage: `url(${src})` }" :class="{ active: i === slideIndex }"></div>
     <div id="stars"></div>
     <div id="stars2"></div>
@@ -49,7 +49,7 @@
               <span>macOS</span>
             </div>
           </div>
-          <div class="platforms-copy">Copyright © 2025 梦之队 · All Rights Reserved</div>
+          <div class="platforms-copy">Copyright © 2026 梦之队 · All Rights Reserved</div>
         </div>
       </div>
     </section>
@@ -60,12 +60,61 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import img001 from '@/static/001.png'
-import img002 from '@/static/002.png'
+import featureChatAi from '@/static/funtion_show/chat_ai.jpg'
+import featureHomepageFemale from '@/static/funtion_show/homepage_female.jpg'
+import featureHomepageMale from '@/static/funtion_show/homepage_male.jpg'
+import featureInterviewAi from '@/static/funtion_show/interview_ai.jpg'
+import featureJobSelectionFemale from '@/static/funtion_show/job_selection_female.jpg'
+import featureJobSelectionMale from '@/static/funtion_show/job_selection_male.jpg'
 
-const slides = [img001, img002]
+const shuffleSlides = (items) => {
+  const list = [...items]
+  for (let i = list.length - 1; i > 0; i -= 1) {
+    const randomIndex = Math.floor(Math.random() * (i + 1))
+    ;[list[i], list[randomIndex]] = [list[randomIndex], list[i]]
+  }
+  return list
+}
+
+const slides = shuffleSlides([
+  featureChatAi,
+  featureHomepageFemale,
+  featureHomepageMale,
+  featureInterviewAi,
+  featureJobSelectionFemale,
+  featureJobSelectionMale
+])
 const slideIndex = ref(0)
+const sliderReady = ref(false)
 let slideTimer = null
+const SLIDE_INTERVAL_MS = 6400
+
+const preloadHeroSlides = async (sources) => {
+  if (typeof Image === 'undefined') return
+  await Promise.allSettled((sources || []).map((src) => new Promise((resolve) => {
+    const img = new Image()
+    img.decoding = 'async'
+    img.loading = 'eager'
+    img.fetchPriority = 'high'
+    img.src = src
+    const finish = () => resolve()
+    img.onload = () => {
+      if (typeof img.decode === 'function') {
+        img.decode().catch(() => {}).finally(finish)
+        return
+      }
+      finish()
+    }
+    img.onerror = finish
+    if (img.complete) {
+      if (typeof img.decode === 'function') {
+        img.decode().catch(() => {}).finally(finish)
+        return
+      }
+      finish()
+    }
+  })))
+}
 
 let hoverRaf = 0
 const gp = ref(0)
@@ -134,14 +183,20 @@ const scrollNext = () => {
   if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-onMounted(() => {
+onMounted(async () => {
   const els = Array.from(document.querySelectorAll('.reveal'))
   const io = new IntersectionObserver((entries) => {
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible') })
   }, { rootMargin: '0px 0px -10% 0px', threshold: 0.1 })
   els.forEach(el => io.observe(el))
 
-  slideTimer = setInterval(() => { slideIndex.value = (slideIndex.value + 1) % slides.length }, 5200)
+  await preloadHeroSlides(slides)
+  sliderReady.value = true
+  if (slides.length > 1) {
+    slideTimer = setInterval(() => {
+      slideIndex.value = (slideIndex.value + 1) % slides.length
+    }, SLIDE_INTERVAL_MS)
+  }
 
   scrollHandler = () => {
     const doc = document.documentElement
@@ -205,8 +260,25 @@ $shadows-large: multiple-box-shadow(150);
 .landing-container { min-height: 100vh; width: 100%; background: radial-gradient(1200px 700px at 50% 0%, #12203a, #0a1929); color: #eaf2ff; position: relative; overflow-x: hidden; overflow-y: auto; }
 .hero-slider { position: relative; min-height: 100vh; width: 100%; overflow: hidden; display: flex; align-items: stretch; }
 .hero-slider::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(800px 500px at 50% 10%, rgba(255,255,255,0.06), rgba(0,0,0,0)); }
-.slide { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0; transform: scale(1.035); filter: blur(0.8px); will-change: opacity, transform, filter; transition: opacity .9s ease-in-out, transform 1.8s ease, filter 1.2s ease; }
-.slide.active { opacity: 1; transform: scale(1); filter: blur(0); }
+.slide {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transform: scale(1.018);
+  will-change: opacity, transform;
+  transition: opacity 1.35s cubic-bezier(0.22, 1, 0.36, 1), transform 6.4s ease-out;
+  backface-visibility: hidden;
+  transform-origin: center center;
+}
+.slide.active {
+  opacity: 1;
+  transform: scale(1);
+}
+.hero-slider:not(.ready) .slide {
+  transition: none;
+}
 .hero-overlay { display: none; }
 .content-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; background: linear-gradient(135deg, #0a1929 0%, #1a1f35 100%); padding: 40px 20px 56px; box-sizing: border-box; }
 .content-center { position: relative; z-index: 2; width: min(100%, 1100px); min-height: calc(100vh - 96px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; }

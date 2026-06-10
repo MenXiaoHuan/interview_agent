@@ -341,6 +341,7 @@ const AGENT_CONVERSATION_MESSAGE_RESPONSE_FIELDS = `
 
 const AGENT_CONVERSATION_RESPONSE_FIELDS = `
   id
+  chatId
   jobId
   agentKey
   title
@@ -1844,11 +1845,11 @@ function buildGraphQlOperation(config) {
     return {
       operationName: 'deleteAgentConversation',
       query: `
-        mutation DeleteAgentConversation($sessionId: ID!) {
-          deleteAgentConversation(sessionId: $sessionId)
+        mutation DeleteAgentConversation($chatId: ID!) {
+          deleteAgentConversation(chatId: $chatId)
         }
       `,
-      variables: { sessionId: decodedSessionId }
+      variables: { chatId: decodedSessionId }
     }
   }
 

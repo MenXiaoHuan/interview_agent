@@ -18,44 +18,44 @@ public interface AgentConversationEventMapper {
 
     @Select("""
             SELECT id,
-                   session_id AS sessionId,
+                   chat_id AS chatId,
                    turn_no AS turnNo,
                    event_type AS eventType,
                    payload_json AS payloadJson,
                    created_at AS createdAt
             FROM agent_conversation_event
-            WHERE session_id = #{sessionId}
+            WHERE chat_id = #{chatId}
             ORDER BY id ASC
             """)
-    List<AgentConversationEventEntity> findBySessionId(@Param("sessionId") String sessionId);
+    List<AgentConversationEventEntity> findByChatId(@Param("chatId") String chatId);
 
     @Select("""
             SELECT id,
-                   session_id AS sessionId,
+                   chat_id AS chatId,
                    turn_no AS turnNo,
                    event_type AS eventType,
                    payload_json AS payloadJson,
                    created_at AS createdAt
             FROM agent_conversation_event
-            WHERE session_id = #{sessionId}
+            WHERE chat_id = #{chatId}
               AND event_type = #{eventType}
             ORDER BY id DESC
             LIMIT 1
             """)
-    AgentConversationEventEntity findLatestBySessionIdAndType(
-            @Param("sessionId") String sessionId,
+    AgentConversationEventEntity findLatestByChatIdAndType(
+            @Param("chatId") String chatId,
             @Param("eventType") String eventType
     );
 
     @Insert("""
             INSERT INTO agent_conversation_event (
-                session_id,
+                chat_id,
                 turn_no,
                 event_type,
                 payload_json,
                 created_at
             ) VALUES (
-                #{sessionId},
+                #{chatId},
                 #{turnNo},
                 #{eventType},
                 #{payloadJson},
@@ -67,14 +67,14 @@ public interface AgentConversationEventMapper {
 
     @Delete("""
             DELETE FROM agent_conversation_event
-            WHERE session_id = #{sessionId}
+            WHERE chat_id = #{chatId}
             """)
-    int deleteBySessionId(@Param("sessionId") String sessionId);
+    int deleteByChatId(@Param("chatId") String chatId);
 
     @Delete("""
             DELETE FROM agent_conversation_event
-            WHERE session_id = #{sessionId}
+            WHERE chat_id = #{chatId}
               AND event_type = #{eventType}
             """)
-    int deleteBySessionIdAndType(@Param("sessionId") String sessionId, @Param("eventType") String eventType);
+    int deleteByChatIdAndType(@Param("chatId") String chatId, @Param("eventType") String eventType);
 }

@@ -102,7 +102,7 @@
                 </div>
                 <div class="message-time">{{ message.time }}</div>
               </div>
-              <div class="error-message" v-if="errorMessage">
+              <div class="error-message" :class="{ 'service-unavailable': isAiServiceUnavailable }" v-if="errorMessage">
                 <span>{{ errorMessage }}</span>
                 <button class="retry-btn" @click="retry">重试</button>
               </div>
@@ -400,6 +400,10 @@ import {
   upsertAgentConversation,
   deleteAgentConversationById
 } from '@/utils/api';
+import {
+  ensureActiveComprehensiveAssessmentSession,
+  updateComprehensiveAssessmentState
+} from '@/utils/comprehensive-assessment';
 
 const router = useRouter();
 const route = useRoute();
@@ -410,7 +414,7 @@ const ASSISTANT_CONVERSATION_AGENT_KEY = 'interview-assistant';
 const DEFAULT_SESSION_TITLE = '新会话';
 const EMPTY_SESSION_PREVIEW = '点击开始对话';
 const HOME_WELCOME_MESSAGE = '有什么我能帮你的吗？';
-const ACTIVE_ASSISTANT_SESSION_STORAGE_KEY = 'activeAiConversationSessionId';
+const ACTIVE_ASSISTANT_CHAT_STORAGE_KEY = 'activeAiConversationChatId';
 const smoothPush = (url) => { isTransitioning.value = true; setTimeout(() => { router.push(url); }, 180); };
 const smoothReLaunch = (url) => { isTransitioning.value = true; setTimeout(() => { uni.reLaunch({ url }); }, 180); };
 const formatDateTimeUtc8 = (value = Date.now()) => {
@@ -421,20 +425,31 @@ const formatDateTimeUtc8 = (value = Date.now()) => {
   return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}:${pad(local.getSeconds())}+08:00`;
 };
 const buildInterviewAiUrl = ({
-  sessionId = '',
+  chatId = '',
   completedType = '',
   mode = '',
   score = '',
-  timestamp = ''
+  timestamp = '',
+  jobId = '',
+  assessmentId = '',
+  autoOpen
 } = {}) => {
   const query = [];
-  const safeSessionId = String(sessionId || '').trim();
+  const safeChatId = String(chatId || '').trim();
   const safeCompletedType = String(completedType || '').trim();
   const safeMode = String(mode || '').trim();
   const safeScore = String(score || '').trim();
   const safeTimestamp = String(timestamp || '').trim();
-  if (safeSessionId) {
-    query.push(`sessionId=${encodeURIComponent(safeSessionId)}`);
+  const safeJobId = String(jobId || '').trim();
+  const safeAssessmentId = String(assessmentId || '').trim();
+  if (safeChatId) {
+    query.push(`chatId=${encodeURIComponent(safeChatId)}`);
+  }
+  if (safeJobId) {
+    query.push(`jobId=${encodeURIComponent(safeJobId)}`);
+  }
+  if (safeAssessmentId) {
+    query.push(`assessmentId=${encodeURIComponent(safeAssessmentId)}`);
   }
   if (safeCompletedType) {
     query.push(`completedType=${encodeURIComponent(safeCompletedType)}`);
@@ -448,24 +463,48 @@ const buildInterviewAiUrl = ({
   if (safeTimestamp) {
     query.push(`timestamp=${encodeURIComponent(safeTimestamp)}`);
   }
+  if (autoOpen === true) {
+    query.push('autoOpen=1');
+  } else if (autoOpen === false) {
+    query.push('autoOpen=0');
+  }
   return `/pages/interview-ai/index${query.length ? `?${query.join('&')}` : ''}`;
 };
+const buildHistoryPageUrl = ({
+  tab = '',
+  type = '',
+  autoOpen = false
+} = {}) => {
+  const query = [];
+  const safeTab = String(tab || '').trim();
+  const safeType = String(type || '').trim();
+  if (safeTab) {
+    query.push(`tab=${encodeURIComponent(safeTab)}`);
+  }
+  if (safeType) {
+    query.push(`type=${encodeURIComponent(safeType)}`);
+  }
+  if (autoOpen) {
+    query.push('autoOpen=1');
+  }
+  return `/pages/history/index${query.length ? `?${query.join('&')}` : ''}`;
+};
 
-const getStoredAssistantConversationSessionId = () => {
+const getStoredAssistantConversationChatId = () => {
   try {
-    return String(sessionStorage.getItem(ACTIVE_ASSISTANT_SESSION_STORAGE_KEY) || '').trim();
+    return String(sessionStorage.getItem(ACTIVE_ASSISTANT_CHAT_STORAGE_KEY) || '').trim();
   } catch (_) {
     return '';
   }
 };
 
-const setStoredAssistantConversationSessionId = (sessionId = '') => {
-  const safeSessionId = String(sessionId || '').trim();
+const setStoredAssistantConversationChatId = (chatId = '') => {
+  const safeChatId = String(chatId || '').trim();
   try {
-    if (safeSessionId) {
-      sessionStorage.setItem(ACTIVE_ASSISTANT_SESSION_STORAGE_KEY, safeSessionId);
+    if (safeChatId) {
+      sessionStorage.setItem(ACTIVE_ASSISTANT_CHAT_STORAGE_KEY, safeChatId);
     } else {
-      sessionStorage.removeItem(ACTIVE_ASSISTANT_SESSION_STORAGE_KEY);
+      sessionStorage.removeItem(ACTIVE_ASSISTANT_CHAT_STORAGE_KEY);
     }
   } catch (_) {}
 };
@@ -497,6 +536,7 @@ const assistantConversationScopeId = ref('');
 const hasShownWelcomeMessage = ref(false);
 // 会话持久化列表：用于左侧历史栏展示与切换。
 const conversationRecords = ref([]);
+const inMemoryDraftSession = ref(null);
 const activeConversationId = ref('');
 const sidebarCollapsed = ref(false);
 const homeWelcomeText = ref('');
@@ -508,7 +548,10 @@ const AVAILABLE_ASSISTANT_ACTION_TYPES = [
   'go_resume',
   'go_questions',
   'go_audio',
-  'go_report'
+  'go_report',
+  'view_resume_history',
+  'view_questions_history',
+  'view_audio_history'
 ];
 const ASSISTANT_ACTION_LABELS = {
   choose_special: '专项测评',
@@ -518,7 +561,10 @@ const ASSISTANT_ACTION_LABELS = {
   go_resume: '去做简历评测',
   go_questions: '去做试题作答',
   go_audio: '去做场景评测',
-  go_report: '查看综合报告'
+  go_report: '查看综合报告',
+  view_resume_history: '查看简历测评历史记录',
+  view_questions_history: '查看试题作答历史记录',
+  view_audio_history: '查看场景评测历史记录'
 };
 const CHAT_AUTO_SCROLL_THRESHOLD = 120;
 const CHAT_AUTO_SCROLL_RESUME_THRESHOLD = 24;
@@ -530,20 +576,16 @@ const currentJobId = ref(null);
 let cachedJobList = null;
 const persistedSessionIds = new Set();
 const deletedSessionIds = new Set();
+const pendingAssistantSessionIds = new Set();
 let persistSessionTimer = null;
 const hasRestoredConversationState = ref(false);
 const isEnteringPageFlow = ref(false);
 let lastHandledPendingActionKey = '';
 const DRAFT_SESSION_ID_PREFIX = 'draft:';
 
-const isPersistentConversationId = (sessionId = '') => {
-  const safeSessionId = String(sessionId || '').trim();
-  return safeSessionId.startsWith('session:');
-};
-
-const buildSessionScopeId = (sessionId = '') => {
-  const safeSessionId = String(sessionId || '').trim();
-  return safeSessionId || `session:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+const isPersistentConversationId = (conversationId = '') => {
+  const safeConversationId = String(conversationId || '').trim();
+  return safeConversationId.startsWith('chat:') || /^\d{12,}$/.test(safeConversationId);
 };
 
 const buildDraftConversationId = (draftId = '') => {
@@ -556,15 +598,19 @@ const getActiveConversationUiId = () => {
 };
 
 const getActivePersistentSessionId = (fallback = '') => {
-  const activeRecordSessionId = String(activeConversationRecord.value?.sessionId || '').trim();
-  if (isPersistentConversationId(activeRecordSessionId)) {
-    return activeRecordSessionId;
+  const activeRecordChatId = String(activeConversationRecord.value?.chatId || '').trim();
+  if (isPersistentConversationId(activeRecordChatId)) {
+    return activeRecordChatId;
   }
   const uiId = getActiveConversationUiId();
   if (isPersistentConversationId(uiId)) {
     return uiId;
   }
-  const storedSessionId = getStoredAssistantConversationSessionId();
+  const scopedSessionId = String(assistantConversationScopeId.value || '').trim();
+  if (isPersistentConversationId(scopedSessionId)) {
+    return scopedSessionId;
+  }
+  const storedSessionId = getStoredAssistantConversationChatId();
   if (isPersistentConversationId(storedSessionId)) {
     return storedSessionId;
   }
@@ -572,13 +618,67 @@ const getActivePersistentSessionId = (fallback = '') => {
   return isPersistentConversationId(safeFallback) ? safeFallback : '';
 };
 
+const collectConversationSessionKeys = (sessionLike = {}) => {
+  return Array.from(new Set(
+    [
+      String(sessionLike?.id || '').trim(),
+      String(sessionLike?.chatId || '').trim()
+    ].filter(Boolean)
+  ));
+};
+
+const markPendingAssistantSessions = (...keys) => {
+  keys
+    .flat()
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+    .forEach((item) => pendingAssistantSessionIds.add(item));
+};
+
+const clearPendingAssistantSessions = (...keys) => {
+  keys
+    .flat()
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+    .forEach((item) => pendingAssistantSessionIds.delete(item));
+};
+
+const hasPendingAssistantForSession = (sessionLike = {}) => {
+  return collectConversationSessionKeys(sessionLike).some((item) => pendingAssistantSessionIds.has(item));
+};
+
+const createLocalThinkingPlaceholder = () => ({
+  type: 'ai',
+  content: '',
+  time: new Date().toLocaleTimeString(),
+  thinking: true,
+  streaming: false
+});
+
 const syncRouteWithPersistentSession = (fallback = '') => {
+  const safeJobId = String(currentJobId.value || route.query.jobId || '').trim();
+  const safeAssessmentId = String(currentComprehensiveAssessmentId.value || route.query.assessmentId || '').trim();
+  if (!showAIChat.value) {
+    if (String(route.query.chatId || '').trim() || String(route.query.completedType || '').trim() || String(route.query.mode || '').trim() || String(route.query.timestamp || '').trim() || String(route.query.autoOpen || '').trim() !== '0') {
+      router.replace(buildInterviewAiUrl({
+        jobId: safeJobId,
+        assessmentId: safeAssessmentId,
+        autoOpen: false
+      }));
+    }
+    return;
+  }
   const targetSessionId = getActivePersistentSessionId(fallback);
-  const currentRouteSessionId = String(route.query.sessionId || '').trim();
+  const currentRouteSessionId = String(route.query.chatId || '').trim();
   if (!targetSessionId || currentRouteSessionId === targetSessionId) {
     return;
   }
-  router.replace(buildInterviewAiUrl({ sessionId: targetSessionId }));
+  router.replace(buildInterviewAiUrl({
+    chatId: targetSessionId,
+    jobId: safeJobId,
+    assessmentId: safeAssessmentId,
+    autoOpen: showAIChat.value
+  }));
 };
 
 const shouldAutoOpenAiChatOnEntry = () => {
@@ -727,10 +827,13 @@ const mapModuleFromActionType = (actionType) => {
     case 'upload_resume_special':
     case 'upload_resume_comprehensive':
     case 'go_resume':
+    case 'view_resume_history':
       return 'resume';
     case 'go_questions':
+    case 'view_questions_history':
       return 'questions';
     case 'go_audio':
+    case 'view_audio_history':
       return 'audio';
     case 'go_report':
       return 'report';
@@ -745,6 +848,28 @@ const resolveTargetModuleForAction = (action) => {
     return decisionModule;
   }
   return mapModuleFromActionType(action?.type);
+};
+
+const isHistoryActionLike = (action = {}) => {
+  const actionType = String(action?.type || '').trim();
+  const actionLabel = String(action?.label || '').trim();
+  return ['view_resume_history', 'view_questions_history', 'view_audio_history'].includes(actionType)
+    || (['go_resume', 'go_questions', 'go_audio'].includes(actionType) && /历史|记录|复盘/.test(actionLabel));
+};
+
+const resolveHistoryTypeForAction = (action = {}) => {
+  const actionType = String(action?.type || '').trim();
+  const actionLabel = String(action?.label || '').trim();
+  if (actionType === 'view_resume_history' || (actionType === 'go_resume' && /历史|记录|复盘/.test(actionLabel))) {
+    return 'resume';
+  }
+  if (actionType === 'view_questions_history' || (actionType === 'go_questions' && /历史|记录|复盘/.test(actionLabel))) {
+    return 'questions';
+  }
+  if (actionType === 'view_audio_history' || (actionType === 'go_audio' && /历史|记录|复盘/.test(actionLabel))) {
+    return 'audio';
+  }
+  return '';
 };
 
 const resolveSuggestedJobForAction = async () => {
@@ -798,6 +923,44 @@ const resolveSuggestedJobForAction = async () => {
   return null;
 };
 
+const buildAssistantActionQuestion = (action, targetJob = null) => {
+  const actionType = String(action?.type || '').trim();
+  const actionLabel = String(action?.label || '').trim();
+  const defaultLabel = String(ASSISTANT_ACTION_LABELS[actionType] || '').trim();
+  const customLabel = actionLabel && actionLabel !== defaultLabel ? actionLabel : '';
+  const targetJobName = String(
+    targetJob?.name
+      || pendingSuggestedJob.value?.name
+      || lastAssistantDecision.value?.targetJobHint
+      || ''
+  ).trim();
+
+  switch (actionType) {
+    case 'choose_special':
+      if (customLabel && targetJobName) {
+        return `${customLabel}。我想按${targetJobName}岗位做专项测评。`;
+      }
+      if (customLabel) {
+        return customLabel;
+      }
+      return targetJobName
+        ? `我想按${targetJobName}岗位做专项测评`
+        : '我想做专项测评';
+    case 'choose_comprehensive':
+      if (customLabel && targetJobName) {
+        return `${customLabel}。我想按${targetJobName}岗位做综合测评。`;
+      }
+      if (customLabel) {
+        return customLabel;
+      }
+      return targetJobName
+        ? `我想按${targetJobName}岗位做综合测评`
+        : '我想做综合测评';
+    default:
+      return customLabel || defaultLabel || '';
+  }
+};
+
 const switchCurrentJobContext = async (job, options = {}) => {
   const previousJobId = String(currentJobId.value || activeConversationRecord.value?.jobId || '').trim();
   const nextJobId = String(job?.id || '').trim();
@@ -820,7 +983,10 @@ const switchCurrentJobContext = async (job, options = {}) => {
     console.warn('保存切换后的岗位信息失败:', error);
   }
 
-  resetComprehensiveState();
+  syncComprehensiveAssessmentState({
+    jobId: nextJobId,
+    createIfMissing: false
+  });
   pendingSuggestedJob.value = null;
   const current = activeConversationRecord.value;
   if (current) {
@@ -828,10 +994,7 @@ const switchCurrentJobContext = async (job, options = {}) => {
       ...current,
       jobId: nextJobId
     });
-    conversationRecords.value = sortSessions([
-      updatedSession,
-      ...conversationRecords.value.filter((item) => item.id !== updatedSession.id)
-    ]);
+    upsertConversationRecord(updatedSession);
     applySessionState(updatedSession);
   }
   syncRouteWithPersistentSession();
@@ -891,7 +1054,7 @@ const normalizeStoredEventLogs = (logs) => {
       type: String(item.type || '').trim(),
       time: String(item.time || formatDateTimeUtc8()),
       source: String(item.source || '').trim(),
-      sessionId: String(item.sessionId || '').trim(),
+      chatId: String(item.chatId || '').trim(),
       jobId: String(item.jobId || '').trim(),
       module: String(item.module || '').trim(),
       mode: String(item.mode || '').trim(),
@@ -924,7 +1087,7 @@ const appendSessionEvent = (type, payload = {}, options = {}) => {
     id: `event:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
     type: safeType,
     time: formatDateTimeUtc8(),
-    sessionId: getActivePersistentSessionId(),
+    chatId: String(payload?.chatId || getActivePersistentSessionId()).trim(),
     jobId: String(payload?.jobId ?? currentJobId.value ?? activeConversationRecord.value?.jobId ?? '').trim(),
     module: String(payload?.module || '').trim(),
     mode: String(payload?.mode || selectedEvaluationMode.value || '').trim(),
@@ -976,6 +1139,22 @@ const buildUntitledSessionTitle = () => {
 
 const hasSessionFirstQuestion = (session) => {
   return hasStartedConversation(session?.aiMessages || []);
+};
+
+const buildConversationDisplayDedupKey = (session) => {
+  const safeMessages = sanitizeConversationMessages(session?.aiMessages || []);
+  if (safeMessages.length === 0) {
+    return `id:${String(session?.id || '').trim()}`;
+  }
+  return JSON.stringify({
+    title: String(session?.title || '').trim(),
+    jobId: String(session?.jobId || '').trim(),
+    selectedEvaluationMode: String(session?.selectedEvaluationMode || '').trim(),
+    messages: safeMessages.map((item) => ({
+      type: item.type,
+      content: item.content
+    }))
+  });
 };
 
 const createDefaultComprehensiveState = () => ({
@@ -1038,6 +1217,52 @@ const normalizeComprehensiveState = (state = {}) => {
   };
 };
 
+const formatEventTimeToMessageTime = (value) => {
+  const text = String(value || '').trim();
+  if (!text) {
+    return new Date().toLocaleTimeString();
+  }
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? text : parsed.toLocaleTimeString();
+};
+
+const rebuildMessagesFromEvents = (messages = [], logs = []) => {
+  const safeMessages = sanitizeConversationMessages(messages);
+  const safeLogs = normalizeStoredEventLogs(logs);
+  const existingAssistantCount = safeMessages.filter((item) => item.type === 'ai').length;
+  const missingAssistantReplies = safeLogs
+    .filter((item) => item.type === 'assistant_reply' && item.reply)
+    .slice(existingAssistantCount)
+    .map((item) => ({
+      type: 'ai',
+      content: item.reply,
+      time: formatEventTimeToMessageTime(item.time)
+    }));
+
+  if (missingAssistantReplies.length === 0) {
+    return safeMessages;
+  }
+
+  const merged = [];
+  let replyIndex = 0;
+  for (let index = 0; index < safeMessages.length; index += 1) {
+    const current = safeMessages[index];
+    const next = safeMessages[index + 1];
+    merged.push(current);
+    if (current.type === 'user' && (!next || next.type === 'user') && replyIndex < missingAssistantReplies.length) {
+      merged.push(missingAssistantReplies[replyIndex]);
+      replyIndex += 1;
+    }
+  }
+
+  while (replyIndex < missingAssistantReplies.length) {
+    merged.push(missingAssistantReplies[replyIndex]);
+    replyIndex += 1;
+  }
+
+  return merged;
+};
+
 const sanitizeConversationMessages = (messages = []) => {
   if (!Array.isArray(messages)) {
     return [];
@@ -1053,26 +1278,22 @@ const sanitizeConversationMessages = (messages = []) => {
 };
 
 const createSessionState = (overrides = {}) => {
-  const candidateId = String(overrides.id || overrides.sessionId || '').trim();
-  const sessionId = isPersistentConversationId(candidateId)
-    ? candidateId
-    : buildDraftConversationId(candidateId);
-  const safeMessages = Array.isArray(overrides.aiMessages) && overrides.aiMessages.length > 0
-    ? sanitizeConversationMessages(overrides.aiMessages)
-    : [];
+  const persistentCandidate = String(overrides.chatId || overrides.id || '').trim();
+  const chatId = isPersistentConversationId(persistentCandidate) ? persistentCandidate : '';
+  const conversationId = chatId || buildDraftConversationId(String(overrides.id || '').trim());
+  const safeMessages = rebuildMessagesFromEvents(overrides.aiMessages || [], overrides.eventLogs || []);
   return {
-    id: sessionId,
+    id: conversationId,
+    chatId,
     jobId: String(overrides.jobId || currentJobId.value || '').trim(),
     title: String(overrides.title || createSessionTitleFromMessages(safeMessages) || buildUntitledSessionTitle()),
     preview: String(overrides.preview || EMPTY_SESSION_PREVIEW),
-    sessionId,
     hasInteractedWithAssistant: overrides.hasInteractedWithAssistant ?? hasStartedConversation(safeMessages),
     hasShownWelcomeMessage: overrides.hasShownWelcomeMessage ?? false,
     selectedEvaluationMode: String(overrides.selectedEvaluationMode || ''),
     assistantActions: normalizeStoredAssistantActions(overrides.assistantActions || []),
     eventLogs: normalizeStoredEventLogs(overrides.eventLogs || []),
     aiMessages: safeMessages,
-    comprehensiveState: normalizeComprehensiveState(overrides.comprehensiveState),
     firstQuestionAt: String(overrides.firstQuestionAt || ''),
     createdAt: String(overrides.createdAt || formatDateTimeUtc8()),
     updatedAt: String(overrides.updatedAt || formatDateTimeUtc8())
@@ -1087,29 +1308,35 @@ const sortSessions = (sessions = []) => {
   });
 };
 
-const ensureAssistantSessionId = () => {
-  const scopedId = getActiveConversationUiId();
-  if (isPersistentConversationId(scopedId)) {
-    assistantConversationScopeId.value = scopedId;
-    return assistantConversationScopeId.value;
+const upsertConversationRecord = (session, replaceIds = []) => {
+  const safeSession = createSessionState(session || {});
+  const idsToReplace = new Set(
+    [safeSession.id, ...replaceIds]
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+  );
+  conversationRecords.value = sortSessions([
+    safeSession,
+    ...conversationRecords.value.filter((item) => !idsToReplace.has(String(item?.id || '').trim()))
+  ]);
+  if (idsToReplace.has(String(inMemoryDraftSession.value?.id || '').trim())) {
+    inMemoryDraftSession.value = null;
   }
-  if (!hasStartedConversation(aiMessages.value)) {
-    assistantConversationScopeId.value = '';
-    return '';
-  }
-  assistantConversationScopeId.value = buildSessionScopeId();
-  return assistantConversationScopeId.value;
+  return safeSession;
 };
 
 const applySessionState = (session) => {
   const safeSession = createSessionState(session || {});
   activeConversationId.value = safeSession.id;
-  setStoredAssistantConversationSessionId(isPersistentConversationId(safeSession.id) ? safeSession.id : '');
+  setStoredAssistantConversationChatId(safeSession.chatId || '');
   currentJobId.value = String(safeSession.jobId || '').trim();
-  assistantConversationScopeId.value = isPersistentConversationId(safeSession.sessionId || safeSession.id)
-    ? (safeSession.sessionId || safeSession.id)
+  assistantConversationScopeId.value = isPersistentConversationId(safeSession.chatId)
+    ? safeSession.chatId
     : '';
   aiMessages.value = safeSession.aiMessages;
+  if (hasPendingAssistantForSession(safeSession) && !aiMessages.value.some((item) => item?.thinking)) {
+    aiMessages.value = [...aiMessages.value, createLocalThinkingPlaceholder()];
+  }
   assistantActions.value = safeSession.assistantActions;
   eventLogs.value = safeSession.eventLogs;
   pendingSuggestedJob.value = null;
@@ -1124,7 +1351,11 @@ const applySessionState = (session) => {
   hasInteractedWithAssistant.value = Boolean(safeSession.hasInteractedWithAssistant);
   hasShownWelcomeMessage.value = Boolean(safeSession.hasShownWelcomeMessage);
   selectedEvaluationMode.value = String(safeSession.selectedEvaluationMode || '');
-  comprehensiveState.value = normalizeComprehensiveState(safeSession.comprehensiveState);
+  syncComprehensiveAssessmentState({
+    jobId: currentJobId.value,
+    assessmentId: route.query.assessmentId || currentComprehensiveAssessmentId.value || '',
+    createIfMissing: false
+  });
   if (hasStartedConversation(safeSession.aiMessages)) {
     stopHomeWelcomeTyping();
   } else {
@@ -1133,16 +1364,40 @@ const applySessionState = (session) => {
 };
 
 const activeConversationRecord = computed(() => {
-  return conversationRecords.value.find((item) => item.id === activeConversationId.value) || null;
+  const historyRecord = conversationRecords.value.find((item) => item.id === activeConversationId.value);
+  if (historyRecord) {
+    return historyRecord;
+  }
+  return String(inMemoryDraftSession.value?.id || '').trim() === String(activeConversationId.value || '').trim()
+    ? inMemoryDraftSession.value
+    : null;
 });
 
 const orderedConversationRecords = computed(() => {
-  return sortSessions(conversationRecords.value.filter((item) => hasSessionFirstQuestion(item)));
+  const seen = new Set();
+  return sortSessions(conversationRecords.value.filter((item) => hasSessionFirstQuestion(item)))
+    .filter((item) => {
+      const dedupKey = buildConversationDisplayDedupKey(item);
+      if (seen.has(dedupKey)) {
+        return false;
+      }
+      seen.add(dedupKey);
+      return true;
+    });
 });
 
 const hasConversationStarted = computed(() => {
   return hasStartedConversation(aiMessages.value);
 });
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+let homeWelcomeTypingSeq = 0;
+
+function stopHomeWelcomeTyping() {
+  homeWelcomeTypingSeq += 1;
+  homeWelcomeText.value = '';
+}
 
 watch(
   [showAIChat, hasConversationStarted],
@@ -1177,28 +1432,24 @@ const confirmDialog = ref({
 });
 
 const findReusableDraftSession = () => {
-  return conversationRecords.value.find((item) => !hasSessionFirstQuestion(item)) || null;
+  return inMemoryDraftSession.value && !hasSessionFirstQuestion(inMemoryDraftSession.value)
+    ? inMemoryDraftSession.value
+    : null;
 };
 
 const createNewSession = (options = {}) => {
-  const { activate = true, persist = true } = options;
+  const { activate = true } = options;
   const reusableSession = findReusableDraftSession();
   if (reusableSession) {
     if (activate) {
       applySessionState(reusableSession);
     }
-    if (persist) {
-      persistConversationState();
-    }
     return reusableSession;
   }
   const session = createSessionState({ title: buildUntitledSessionTitle() });
-  conversationRecords.value = sortSessions([session, ...conversationRecords.value.filter((item) => item.id !== session.id)]);
+  inMemoryDraftSession.value = session;
   if (activate) {
     applySessionState(session);
-  }
-  if (persist) {
-    persistConversationState();
   }
   return session;
 };
@@ -1206,11 +1457,11 @@ const createNewSession = (options = {}) => {
 const buildCurrentSessionSnapshot = () => {
   const existing = activeConversationRecord.value;
   const hasRealConversationStarted = hasStartedConversation(aiMessages.value);
-  const persistentSessionId = isPersistentConversationId(existing?.id)
-    ? existing.id
+  const persistentSessionId = isPersistentConversationId(existing?.chatId || existing?.id)
+    ? String(existing?.chatId || existing?.id || '').trim()
     : getActivePersistentSessionId();
   const resolvedSessionId = hasRealConversationStarted
-    ? (persistentSessionId || ensureAssistantSessionId())
+    ? (persistentSessionId || String(existing?.id || getActiveConversationUiId() || '').trim() || buildDraftConversationId())
     : (String(existing?.id || getActiveConversationUiId() || '').trim() || buildDraftConversationId());
   const firstQuestionAt = existing?.firstQuestionAt || (hasStartedConversation(aiMessages.value) ? formatDateTimeUtc8() : '');
   const title = hasRealConversationStarted
@@ -1218,17 +1469,16 @@ const buildCurrentSessionSnapshot = () => {
     : (existing?.title || buildUntitledSessionTitle());
   return createSessionState({
     id: resolvedSessionId,
+    chatId: persistentSessionId,
     jobId: String(existing?.jobId || currentJobId.value || '').trim(),
     title,
     preview: EMPTY_SESSION_PREVIEW,
-    sessionId: resolvedSessionId,
     hasInteractedWithAssistant: hasInteractedWithAssistant.value,
     hasShownWelcomeMessage: hasShownWelcomeMessage.value,
     selectedEvaluationMode: selectedEvaluationMode.value,
     assistantActions: assistantActions.value,
     eventLogs: eventLogs.value,
     aiMessages: aiMessages.value,
-    comprehensiveState: comprehensiveState.value,
     firstQuestionAt,
     createdAt: existing?.createdAt || formatDateTimeUtc8(),
     updatedAt: formatDateTimeUtc8()
@@ -1237,30 +1487,50 @@ const buildCurrentSessionSnapshot = () => {
 
 const syncCurrentSessionState = () => {
   const snapshot = buildCurrentSessionSnapshot();
+  const previousActiveId = getActiveConversationUiId();
   activeConversationId.value = snapshot.id;
-  conversationRecords.value = sortSessions([
-    snapshot,
-    ...conversationRecords.value.filter((item) => item.id !== snapshot.id)
-  ]);
-  return snapshot;
+  if (!hasSessionFirstQuestion(snapshot) && !persistedSessionIds.has(snapshot.id)) {
+    inMemoryDraftSession.value = snapshot;
+    return snapshot;
+  }
+  return upsertConversationRecord(snapshot, previousActiveId && previousActiveId !== snapshot.id ? [previousActiveId] : []);
+};
+
+const applyPersistedConversation = (serverSession, localSnapshot = null) => {
+  const persistedSession = createSessionState(serverSession || localSnapshot || {});
+  const idsToReplace = [
+    localSnapshot?.id,
+    localSnapshot?.chatId
+  ]
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+    .filter((item) => item !== persistedSession.id);
+  const mergedSession = upsertConversationRecord(persistedSession, idsToReplace);
+  persistedSessionIds.add(mergedSession.id);
+  deletedSessionIds.delete(mergedSession.id);
+  const localActiveId = String(localSnapshot?.id || '').trim();
+  if (!localActiveId || String(activeConversationId.value || '').trim() === localActiveId || String(activeConversationId.value || '').trim() === String(mergedSession.id || '').trim()) {
+    applySessionState(mergedSession);
+  }
+  syncRouteWithPersistentSession(mergedSession.chatId || mergedSession.id);
+  return mergedSession;
 };
 
 // 将当前前端会话快照转换为后端会话持久化请求。
 const buildConversationUpsertRequest = (snapshot, overrideJobId = null) => ({
-  sessionId: snapshot?.id || '',
+  chatId: isPersistentConversationId(snapshot?.chatId || snapshot?.id)
+    ? String(snapshot?.chatId || snapshot?.id || '').trim()
+    : null,
   agentKey: ASSISTANT_CONVERSATION_AGENT_KEY,
   jobId: Number(String((overrideJobId ?? snapshot?.jobId ?? currentJobId.value) || '').trim()) || null,
   title: snapshot?.title || '',
   selectedEvaluationMode: snapshot?.selectedEvaluationMode || '',
   hasInteractedWithAssistant: Boolean(snapshot?.hasInteractedWithAssistant),
   hasShownWelcomeMessage: Boolean(snapshot?.hasShownWelcomeMessage),
-  firstQuestionAt: snapshot?.firstQuestionAt || '',
+  firstQuestionAt: String(snapshot?.firstQuestionAt || '').trim() || null,
   assistantActions: Array.isArray(snapshot?.assistantActions) ? snapshot.assistantActions : [],
   eventLogs: Array.isArray(snapshot?.eventLogs) ? snapshot.eventLogs : [],
-  aiMessages: sanitizeConversationMessages(snapshot?.aiMessages),
-  comprehensiveState: snapshot?.comprehensiveState && typeof snapshot.comprehensiveState === 'object'
-    ? snapshot.comprehensiveState
-    : createDefaultComprehensiveState()
+  aiMessages: sanitizeConversationMessages(snapshot?.aiMessages)
 });
 
 // 只有已经开始交互或已存在远端记录的会话，才会触发后端持久化。
@@ -1268,29 +1538,34 @@ const shouldPersistConversationToServer = (snapshot) => {
   if (!snapshot?.id) {
     return false;
   }
-  if (!isPersistentConversationId(snapshot.id)) {
+  if (deletedSessionIds.has(String(snapshot.chatId || snapshot.id || '').trim())) {
     return false;
   }
-  if (deletedSessionIds.has(snapshot.id)) {
-    return false;
-  }
-  return hasSessionFirstQuestion(snapshot) || persistedSessionIds.has(snapshot.id);
+  return hasSessionFirstQuestion(snapshot)
+    || persistedSessionIds.has(String(snapshot.chatId || snapshot.id || '').trim());
 };
 
 // 整包上报一个会话快照，后端会拆分写入 session/message/event/memory 四表。
 const persistConversationToServer = async (snapshot, overrideJobId = null) => {
   if (!snapshot?.id) {
-    return;
+    return snapshot;
   }
-  if (deletedSessionIds.has(snapshot.id)) {
-    return;
+  const conversationId = String(snapshot.chatId || snapshot.id || '').trim();
+  if (deletedSessionIds.has(conversationId)) {
+    return snapshot;
+  }
+  if (!hasSessionFirstQuestion(snapshot)) {
+    return snapshot;
   }
   const payload = buildConversationUpsertRequest(snapshot, overrideJobId);
   try {
-    await upsertAgentConversation(payload);
-    persistedSessionIds.add(snapshot.id);
+    const response = await upsertAgentConversation(payload);
+    const savedSnapshot = response?.data ? applyPersistedConversation(response.data, snapshot) : snapshot;
+    persistedSessionIds.add(String(savedSnapshot?.chatId || savedSnapshot?.id || '').trim());
+    return savedSnapshot;
   } catch (error) {
     console.warn('保存 AI 会话到后端失败:', error);
+    return snapshot;
   }
 };
 
@@ -1303,7 +1578,7 @@ const flushConversationPersistence = async (snapshot, overrideJobId = null) => {
     persistSessionTimer = null;
   }
   if (shouldPersistConversationToServer(snapshot)) {
-    await persistConversationToServer(snapshot, overrideJobId);
+    return persistConversationToServer(snapshot, overrideJobId);
   }
   return snapshot;
 };
@@ -1333,7 +1608,7 @@ const persistConversationState = () => {
 };
 
 // 页面进入时恢复服务端会话列表。
-// 若 URL 指定了 sessionId，则打开对应历史会话；否则默认进入新的草稿会话。
+// 若 URL 指定了 chatId，则打开对应历史会话；否则默认进入新的草稿会话。
 const restoreConversationState = async () => {
   assistantConversationScopeId.value = '';
   aiMessages.value = [];
@@ -1343,7 +1618,9 @@ const restoreConversationState = async () => {
   hasInteractedWithAssistant.value = false;
   hasShownWelcomeMessage.value = false;
   selectedEvaluationMode.value = '';
+  persistedSessionIds.clear();
   conversationRecords.value = [];
+  inMemoryDraftSession.value = null;
   activeConversationId.value = '';
   sidebarCollapsed.value = false;
   showAIChat.value = shouldAutoOpenAiChatOnEntry();
@@ -1361,39 +1638,31 @@ const restoreConversationState = async () => {
         }
       });
       conversationRecords.value = sortSessions(remoteSessions);
-      const routeSessionId = String(route.query.sessionId || '').trim()
-        || (String(route.query.completedType || '').trim() ? getStoredAssistantConversationSessionId() : '');
+      const routeSessionId = String(route.query.chatId || '').trim()
+        || (String(route.query.completedType || '').trim() ? getStoredAssistantConversationChatId() : '');
       const historySession = routeSessionId
-        ? conversationRecords.value.find((item) => item.id === routeSessionId)
+        ? conversationRecords.value.find((item) => item.id === routeSessionId || item.chatId === routeSessionId)
         : null;
       if (historySession) {
         applySessionState(historySession);
       } else if (routeSessionId) {
         const placeholderSession = createSessionState({
-          id: routeSessionId,
-          sessionId: routeSessionId,
+          id: '',
+          chatId: routeSessionId,
           title: buildUntitledSessionTitle()
         });
-        conversationRecords.value = sortSessions([
-          placeholderSession,
-          ...conversationRecords.value.filter((item) => item.id !== routeSessionId)
-        ]);
+        inMemoryDraftSession.value = placeholderSession;
         applySessionState(placeholderSession);
       } else {
-        createNewSession({ activate: true, persist: false });
+        createNewSession({ activate: true });
       }
       sidebarCollapsed.value = false;
       return;
     }
-
-    const session = createSessionState();
-    conversationRecords.value = [session];
-    applySessionState(session);
+    createNewSession({ activate: true });
   } catch (error) {
     console.warn('恢复 AI 会话状态失败:', error);
-    const session = createSessionState();
-    conversationRecords.value = [session];
-    applySessionState(session);
+    createNewSession({ activate: true });
   }
 };
 
@@ -1405,25 +1674,29 @@ const resetAssistantSession = () => {
     createdAt: existing?.createdAt || formatDateTimeUtc8()
   });
   applySessionState(resetSession);
-  conversationRecords.value = sortSessions([
-    resetSession,
-    ...conversationRecords.value.filter((item) => item.id !== resetSession.id)
-  ]);
-  persistConversationState();
+  if (persistedSessionIds.has(resetSession.id) || isPersistentConversationId(resetSession.id)) {
+    conversationRecords.value = sortSessions([
+      resetSession,
+      ...conversationRecords.value.filter((item) => item.id !== resetSession.id)
+    ]);
+    persistConversationState();
+    return;
+  }
+  inMemoryDraftSession.value = resetSession;
 };
 
-const switchConversation = (sessionId) => {
-  if (!sessionId || sessionId === getActiveConversationUiId()) {
+const switchConversation = (chatId) => {
+  if (!chatId || chatId === getActiveConversationUiId()) {
     return;
   }
   syncCurrentSessionState();
-  const target = conversationRecords.value.find((item) => item.id === sessionId);
+  const target = conversationRecords.value.find((item) => item.id === chatId);
   if (!target) {
     return;
   }
   applySessionState(target);
-  if (isPersistentConversationId(target.id || target.sessionId)) {
-    syncRouteWithPersistentSession(String(target.id || target.sessionId || '').trim());
+  if (isPersistentConversationId(target.id || target.chatId)) {
+    syncRouteWithPersistentSession(String(target.id || target.chatId || '').trim());
   }
   persistConversationState();
   nextTick(() => {
@@ -1431,15 +1704,15 @@ const switchConversation = (sessionId) => {
   });
 };
 
-const deleteConversationRecord = async (sessionId) => {
+const deleteConversationRecord = async (chatId) => {
   if (persistSessionTimer) {
     clearTimeout(persistSessionTimer);
     persistSessionTimer = null;
   }
-  const remaining = conversationRecords.value.filter((item) => item.id !== sessionId);
-  if (isPersistentConversationId(sessionId)) {
+  const remaining = conversationRecords.value.filter((item) => item.id !== chatId);
+  if (isPersistentConversationId(chatId)) {
     try {
-      await deleteAgentConversationById(sessionId);
+      await deleteAgentConversationById(chatId);
     } catch (error) {
       console.warn('删除后端 AI 会话失败:', error);
       uni.showToast({
@@ -1449,22 +1722,21 @@ const deleteConversationRecord = async (sessionId) => {
       return;
     }
   }
-  deletedSessionIds.add(sessionId);
-  persistedSessionIds.delete(sessionId);
+  deletedSessionIds.add(chatId);
+  persistedSessionIds.delete(chatId);
   if (remaining.length === 0) {
-    const session = createSessionState();
-    conversationRecords.value = [session];
-    applySessionState(session);
+    conversationRecords.value = [];
+    createNewSession({ activate: true });
   } else {
     conversationRecords.value = sortSessions(remaining);
-    if (getActiveConversationUiId() === sessionId) {
+    if (getActiveConversationUiId() === chatId) {
       applySessionState(conversationRecords.value[0]);
     }
   }
-  if (String(getActiveConversationUiId() || '').trim() === String(sessionId || '').trim()) {
-    setStoredAssistantConversationSessionId(getActivePersistentSessionId());
+  if (String(getActiveConversationUiId() || '').trim() === String(chatId || '').trim()) {
+    setStoredAssistantConversationChatId(getActivePersistentSessionId());
   }
-  if (String(route.query.sessionId || '').trim() === String(sessionId || '').trim()) {
+  if (String(route.query.chatId || '').trim() === String(chatId || '').trim()) {
     syncRouteWithPersistentSession();
   }
   persistConversationState();
@@ -1481,13 +1753,13 @@ const closeConfirmDialog = () => {
   };
 };
 
-const confirmDeleteConversationRecord = (sessionId) => {
-  const target = conversationRecords.value.find((item) => item.id === sessionId);
+const confirmDeleteConversationRecord = (chatId) => {
+  const target = conversationRecords.value.find((item) => item.id === chatId);
   confirmDialog.value = {
     visible: true,
     type: 'delete-session',
     tone: 'danger',
-    targetSessionId: sessionId,
+    targetSessionId: chatId,
     title: '确认删除会话',
     message: `确定要删除“${target?.title || '当前会话'}”吗？删除后该会话历史将无法恢复。`
   };
@@ -1524,14 +1796,16 @@ const consumeRoutePendingAssistantAction = () => {
   const pendingTypeMap = {
     resume: 'resume_completed',
     questions: 'questions_completed',
-    audio: 'audio_completed'
+    audio: 'audio_completed',
+    report: 'report_completed'
   };
   const pendingType = pendingTypeMap[completedType];
   if (!pendingType) {
     return null;
   }
-  const sourceSessionId = String(route.query.sessionId || '').trim() || getStoredAssistantConversationSessionId();
+  const sourceSessionId = String(route.query.chatId || '').trim() || getStoredAssistantConversationChatId();
   const sourceMode = String(route.query.mode || 'COMPREHENSIVE').trim() || 'COMPREHENSIVE';
+  const hasExplicitScore = route.query.score !== undefined && String(route.query.score).trim() !== '';
   const sourceScore = Number(route.query.score || 0) || 0;
   const sourceTimestamp = String(route.query.timestamp || '').trim();
   const pendingActionKey = [pendingType, sourceSessionId, sourceMode, sourceScore, sourceTimestamp].join('|');
@@ -1541,8 +1815,10 @@ const consumeRoutePendingAssistantAction = () => {
   return {
     type: pendingType,
     mode: sourceMode,
-    sessionId: sourceSessionId,
+    chatId: sourceSessionId,
     score: sourceScore,
+    hasScore: hasExplicitScore,
+    skipStateSync: pendingType === 'report_completed',
     pendingActionKey
   };
 };
@@ -1551,17 +1827,20 @@ const clearRoutePendingAssistantAction = () => {
   if (!String(route.query.completedType || '').trim() && !String(route.query.mode || '').trim() && !String(route.query.timestamp || '').trim()) {
     return;
   }
-  const fallbackSessionId = String(route.query.sessionId || '').trim() || getActivePersistentSessionId();
+  const fallbackSessionId = String(route.query.chatId || '').trim() || getActivePersistentSessionId();
   router.replace(buildInterviewAiUrl({
-    sessionId: fallbackSessionId
+    chatId: showAIChat.value ? fallbackSessionId : '',
+    jobId: String(currentJobId.value || route.query.jobId || '').trim(),
+    assessmentId: String(currentComprehensiveAssessmentId.value || route.query.assessmentId || '').trim(),
+    autoOpen: showAIChat.value
   }));
 };
 
-const buildCompletionFollowupQuestion = ({ type = '', mode = '', score = 0 } = {}) => {
+const buildCompletionFollowupQuestion = ({ type = '', mode = '', score = 0, hasScore = false } = {}) => {
   const safeType = String(type || '').trim();
   const safeMode = String(mode || '').trim().toUpperCase();
   const safeScore = Math.max(0, Number(score) || 0);
-  const scoreText = safeScore > 0 ? `，得分 ${safeScore} 分` : '';
+  const scoreText = hasScore ? `，得分 ${safeScore} 分` : '';
   const evaluationLabel = safeMode === 'SPECIAL' ? '专项测评' : '综合测评';
   if (safeType === 'resume_completed') {
     return `我已经完成${evaluationLabel}的简历评测${scoreText}。请基于当前会话确认我已完成该环节，结合当前进度告诉我下一步，并给出可执行按钮。`;
@@ -1571,6 +1850,9 @@ const buildCompletionFollowupQuestion = ({ type = '', mode = '', score = 0 } = {
   }
   if (safeType === 'audio_completed') {
     return `我已经完成${evaluationLabel}的场景评测${scoreText}。请基于当前会话确认我已完成该环节，结合当前进度告诉我下一步，并给出可执行按钮。`;
+  }
+  if (safeType === 'report_completed') {
+    return `我已经完成${evaluationLabel}的完整流程，并保存了综合报告${scoreText}。请基于当前会话总结我本次综合测评的整体表现，给出下一步提升建议，并继续正常回复我。`;
   }
   return '';
 };
@@ -1589,17 +1871,22 @@ const buildCompletionFallbackAssistantReply = (pending = {}, payload = {}) => {
   const safeType = String(pending?.type || '').trim();
   const safeMode = String(pending?.mode || '').trim().toUpperCase();
   const safeScore = Math.max(0, Number(pending?.score || 0) || 0);
+  const hasScore = Boolean(pending?.hasScore);
   const finishedModuleMap = {
     resume_completed: '简历评测',
     questions_completed: '试题作答',
-    audio_completed: '场景评测'
+    audio_completed: '场景评测',
+    report_completed: '综合报告'
   };
   const evaluationLabel = safeMode === 'SPECIAL' ? '专项测评' : '综合测评';
   const finishedModuleLabel = finishedModuleMap[safeType] || '当前评测';
-  const scoreText = safeScore > 0 ? `，本次得分 ${safeScore} 分` : '';
+  const scoreText = hasScore ? `，本次得分 ${safeScore} 分` : '';
   const nextModule = normalizeTargetModuleValue(payload?.targetModule)
     || mapModuleFromActionType(payload?.actions?.[0]?.type);
   const nextModuleLabel = getModuleDisplayName(nextModule);
+  if (safeType === 'report_completed') {
+    return `已收到，你已经完成了${evaluationLabel}的全流程并生成了综合报告${scoreText}。我会基于这次完整测评结果继续为你总结表现并给出后续建议。`;
+  }
   if (nextModuleLabel && nextModuleLabel !== finishedModuleLabel) {
     return `已收到，你刚完成了${evaluationLabel}中的${finishedModuleLabel}${scoreText}。我已结合当前进度为你准备好下一步，建议继续进入${nextModuleLabel}，你可以直接点击下方按钮继续。`;
   }
@@ -1613,26 +1900,28 @@ const handlePendingAssistantAction = async () => {
     return;
   }
   showAIChat.value = shouldAutoOpenAiChatOnEntry();
-  if (pending.sessionId) {
-    const targetSession = conversationRecords.value.find((item) => item.id === pending.sessionId);
+  if (pending.chatId) {
+    const targetSession = conversationRecords.value.find((item) => item.id === pending.chatId);
     if (targetSession) {
       applySessionState(targetSession);
-    } else if (isPersistentConversationId(pending.sessionId)) {
+    } else if (isPersistentConversationId(pending.chatId)) {
       const placeholderSession = createSessionState({
-        id: pending.sessionId,
-        sessionId: pending.sessionId,
+        id: '',
+        chatId: pending.chatId,
         title: buildUntitledSessionTitle()
       });
       conversationRecords.value = sortSessions([
         placeholderSession,
-        ...conversationRecords.value.filter((item) => item.id !== pending.sessionId)
+        ...conversationRecords.value.filter((item) => item.id !== pending.chatId)
       ]);
       applySessionState(placeholderSession);
     }
   }
   if (routePending) {
     lastHandledPendingActionKey = String(routePending.pendingActionKey || '');
-    applyComprehensiveCompletion(routePending);
+    if (!routePending.skipStateSync) {
+      applyComprehensiveCompletion(routePending);
+    }
     clearRoutePendingAssistantAction();
   }
   hasInteractedWithAssistant.value = true;
@@ -1677,6 +1966,49 @@ const enterPageFlow = async () => {
 
 // 综合测评特有的状态管理
 const comprehensiveState = ref(createDefaultComprehensiveState());
+const currentComprehensiveAssessmentId = ref('');
+
+const syncComprehensiveAssessmentState = ({
+  jobId = currentJobId.value,
+  assessmentId = '',
+  createIfMissing = false,
+  forceNew = false
+} = {}) => {
+  const safeJobId = String(jobId || '').trim();
+  if (!safeJobId) {
+    currentComprehensiveAssessmentId.value = '';
+    comprehensiveState.value = createDefaultComprehensiveState();
+    return null;
+  }
+  const session = ensureActiveComprehensiveAssessmentSession(safeJobId, {
+    assessmentId: assessmentId || route.query.assessmentId || currentComprehensiveAssessmentId.value || '',
+    createIfMissing,
+    forceNew
+  });
+  currentComprehensiveAssessmentId.value = String(session?.assessmentId || '').trim();
+  comprehensiveState.value = normalizeComprehensiveState(session?.state);
+  return session;
+};
+
+const persistComprehensiveAssessmentState = (nextState, {
+  jobId = currentJobId.value,
+  assessmentId = currentComprehensiveAssessmentId.value
+} = {}) => {
+  const safeJobId = String(jobId || '').trim();
+  if (!safeJobId) {
+    comprehensiveState.value = normalizeComprehensiveState(nextState);
+    return null;
+  }
+  const savedSession = updateComprehensiveAssessmentState(
+    safeJobId,
+    assessmentId || route.query.assessmentId || '',
+    nextState,
+    { createIfMissing: true }
+  );
+  currentComprehensiveAssessmentId.value = String(savedSession?.assessmentId || currentComprehensiveAssessmentId.value || '').trim();
+  comprehensiveState.value = normalizeComprehensiveState(savedSession?.state);
+  return savedSession;
+};
 
 // AI对话功能
 const toggleAIChat = (nextState) => {
@@ -1697,6 +2029,12 @@ const toggleAIChat = (nextState) => {
     if (!hasConversationStarted.value) {
       startHomeWelcomeTyping(true);
     }
+  } else if (String(route.query.chatId || '').trim() || String(route.query.completedType || '').trim() || String(route.query.mode || '').trim() || String(route.query.timestamp || '').trim() || String(route.query.autoOpen || '').trim()) {
+    router.replace(buildInterviewAiUrl({
+      jobId: String(currentJobId.value || route.query.jobId || '').trim(),
+      assessmentId: String(currentComprehensiveAssessmentId.value || route.query.assessmentId || '').trim(),
+      autoOpen: false
+    }));
   }
   persistConversationState();
 };
@@ -1707,12 +2045,8 @@ const toggleSidebar = () => {
 
 const handleEnterKey = (event) => {
   event.preventDefault();
-  console.log('Enter键被按下，输入内容:', userInput.value);
   if (userInput.value.trim()) {
-    console.log('准备发送消息');
     sendMessage();
-  } else {
-    console.log('输入为空，不发送');
   }
 };
 
@@ -1799,11 +2133,36 @@ const normalizeAssistantActions = (actions) => {
     .slice(0, 3);
 };
 
-const getAIResponse = async (userQuestion) => {
+const AI_SERVICE_UNAVAILABLE_MESSAGE = 'AI 服务当前不可用';
+
+const resolveAiRequestError = (error) => {
+  const statusCode = Number(
+    error?.response?.status
+    || error?.response?.data?.code
+    || error?.code
+    || 0
+  );
+  const rawMessage = String(
+    error?.response?.data?.message
+    || error?.message
+    || ''
+  ).trim();
+  const normalizedMessage = rawMessage.toLowerCase();
+  const isUnavailable = statusCode === 503
+    || rawMessage.includes(AI_SERVICE_UNAVAILABLE_MESSAGE)
+    || /余额|欠费|充值|quota|balance|billing|payment required|insufficient|rate limit|service unavailable/i.test(normalizedMessage);
+
+  return {
+    isUnavailable,
+    message: isUnavailable ? AI_SERVICE_UNAVAILABLE_MESSAGE : '出错啦～请刷新界面重试OnO'
+  };
+};
+
+const getAIResponse = async (userQuestion, conversationChatId = '') => {
   try {
     const response = await getInterviewAssistantReply({
       question: userQuestion,
-      sessionId: ensureAssistantSessionId(),
+      chatId: String(conversationChatId || getActivePersistentSessionId()).trim(),
       evaluationMode: selectedEvaluationMode.value,
       currentJobId: currentJobId.value,
       currentState: comprehensiveState.value,
@@ -1816,7 +2175,12 @@ const getAIResponse = async (userQuestion) => {
     return parseAssistantPayload(response.data);
   } catch (error) {
     console.error('API调用失败:', error);
-    throw new Error('ai出错啦请刷新界面重试');
+    const resolvedError = resolveAiRequestError(error);
+    const nextError = new Error(resolvedError.message);
+    nextError.response = error?.response;
+    nextError.code = error?.code;
+    nextError.isAiServiceUnavailable = resolvedError.isUnavailable;
+    throw nextError;
   }
 };
 
@@ -1832,6 +2196,7 @@ const submitAssistantQuestion = async (question, options = {}) => {
     minThinkingDuration = 420
   } = options;
   errorMessage.value = '';
+  isAiServiceUnavailable.value = false;
   pendingSuggestedJob.value = null;
 
   await trySwitchJobFromQuestion(userQuestion);
@@ -1855,18 +2220,20 @@ const submitAssistantQuestion = async (question, options = {}) => {
     const snapshot = buildCurrentSessionSnapshot();
     snapshot.title = createSessionTitleFromMessages(aiMessages.value);
     snapshot.preview = EMPTY_SESSION_PREVIEW;
-    conversationRecords.value = sortSessions([
+    const previousActiveId = getActiveConversationUiId();
+    upsertConversationRecord(
       snapshot,
-      ...conversationRecords.value.filter((item) => item.id !== snapshot.id)
-    ]);
+      previousActiveId && previousActiveId !== snapshot.id ? [previousActiveId] : []
+    );
   }
 
   assistantActions.value = [];
   hasInteractedWithAssistant.value = true;
   showAIChat.value = true;
-  const thinkingMessage = createAssistantThinkingMessage();
+  const requestSessionKeys = new Set(collectConversationSessionKeys(activeConversationRecord.value));
+  let thinkingMessage = createAssistantThinkingMessage();
+  markPendingAssistantSessions(Array.from(requestSessionKeys));
   isTyping.value = true;
-  persistConversationState();
 
   await nextTick();
   scrollToBottom('smooth', true);
@@ -1876,7 +2243,24 @@ const submitAssistantQuestion = async (question, options = {}) => {
 
   const requestStartedAt = Date.now();
   try {
-    const payload = await getAIResponse(userQuestion);
+    let requestSnapshot = syncCurrentSessionState();
+    collectConversationSessionKeys(requestSnapshot).forEach((item) => requestSessionKeys.add(item));
+    let conversationChatId = getActivePersistentSessionId(String(requestSnapshot?.chatId || requestSnapshot?.id || '').trim());
+    if (!conversationChatId && hasSessionFirstQuestion(requestSnapshot)) {
+      requestSnapshot = await flushConversationPersistence(requestSnapshot);
+      collectConversationSessionKeys(requestSnapshot).forEach((item) => requestSessionKeys.add(item));
+      conversationChatId = getActivePersistentSessionId(String(requestSnapshot?.chatId || requestSnapshot?.id || '').trim());
+      if (conversationChatId) {
+        requestSessionKeys.add(conversationChatId);
+      }
+      markPendingAssistantSessions(Array.from(requestSessionKeys));
+      if (!aiMessages.value.some((item) => item?.thinking)) {
+        thinkingMessage = createAssistantThinkingMessage();
+        await nextTick();
+        scrollToBottom('smooth', true);
+      }
+    }
+    const payload = await getAIResponse(userQuestion, conversationChatId);
     const assistantReply = String(payload?.reply || '').trim()
       || (typeof fallbackReplyBuilder === 'function' ? String(fallbackReplyBuilder(payload) || '').trim() : '');
     lastAssistantDecision.value = {
@@ -1898,6 +2282,7 @@ const submitAssistantQuestion = async (question, options = {}) => {
       pendingSuggestedJob.value = null;
     }
     appendSessionEvent('assistant_reply', {
+      chatId: conversationChatId,
       source: 'assistant',
       intent: payload.intent,
       module: normalizeTargetModuleValue(payload.targetModule),
@@ -1918,11 +2303,18 @@ const submitAssistantQuestion = async (question, options = {}) => {
         await sleep(remainingThinkingMs);
       }
       isTyping.value = false;
+      if (!aiMessages.value.includes(thinkingMessage) && hasPendingAssistantForSession({
+        id: getActiveConversationUiId(),
+        chatId: getActivePersistentSessionId()
+      })) {
+        thinkingMessage = aiMessages.value.find((item) => item?.thinking) || thinkingMessage;
+      }
       await appendAiMessageWithTyping(assistantReply, thinkingMessage);
     } else {
       aiMessages.value = aiMessages.value.filter((item) => item !== thinkingMessage);
       isTyping.value = false;
     }
+    clearPendingAssistantSessions(Array.from(requestSessionKeys));
     assistantActions.value = normalizeAssistantActions(payload.actions);
     await nextTick();
     await ensureStreamingScrollToBottom(true);
@@ -1931,7 +2323,10 @@ const submitAssistantQuestion = async (question, options = {}) => {
     console.error('获取AI回复失败:', error);
     aiMessages.value = aiMessages.value.filter((item) => item !== thinkingMessage);
     isTyping.value = false;
-    errorMessage.value = '出错啦～请刷新界面重试OnO';
+    clearPendingAssistantSessions(Array.from(requestSessionKeys));
+    const resolvedError = resolveAiRequestError(error);
+    isAiServiceUnavailable.value = resolvedError.isUnavailable;
+    errorMessage.value = resolvedError.message;
     persistConversationState();
     await nextTick();
     scrollToBottom();
@@ -1972,6 +2367,45 @@ const goToModule = async (moduleType, options = {}) => {
   handleModuleClick(moduleType, options);
 };
 
+const goToHistoryPage = async (historyType, options = {}) => {
+  const typeMap = {
+    resume: 'resume',
+    questions: 'questions',
+    audio: 'audio'
+  };
+  const safeHistoryType = typeMap[String(historyType || '').trim()] || '';
+  appendSessionEvent('history_navigation_prompted', {
+    source: String(options?.source || 'assistant_action').trim(),
+    module: safeHistoryType,
+    jobId: String(options?.jobId || currentJobId.value || '').trim(),
+    actionType: String(options?.actionType || '').trim(),
+    label: String(options?.label || '').trim()
+  }, { persist: false });
+  await addLocalAiMessage(`正在为你打开${ASSISTANT_ACTION_LABELS[`view_${safeHistoryType}_history`] || '历史记录'}。`);
+  const currentSnapshot = await flushConversationPersistence(syncCurrentSessionState(), String(options?.jobId || currentJobId.value || '').trim() || null);
+  appendSessionEvent('history_navigation_started', {
+    source: String(options?.source || 'assistant_action').trim(),
+    module: safeHistoryType,
+    jobId: String(options?.jobId || currentJobId.value || '').trim(),
+    actionType: String(options?.actionType || '').trim(),
+    label: String(options?.label || '').trim(),
+    meta: {
+      route: buildHistoryPageUrl({
+        tab: safeHistoryType ? 'specialized' : 'comprehensive',
+        type: safeHistoryType,
+        autoOpen: Boolean(safeHistoryType)
+      }),
+      chatId: String(currentSnapshot?.chatId || currentSnapshot?.id || '').trim()
+    }
+  });
+  persistConversationState();
+  smoothPush(buildHistoryPageUrl({
+    tab: safeHistoryType ? 'specialized' : 'comprehensive',
+    type: safeHistoryType,
+    autoOpen: Boolean(safeHistoryType)
+  }));
+};
+
 const runAssistantAction = async (action) => {
   if (!action?.type) {
     return;
@@ -1989,25 +2423,34 @@ const runAssistantAction = async (action) => {
     targetJobHint: String(lastAssistantDecision.value?.targetJobHint || '').trim()
   }, { persist: false });
 
-  if (['upload_resume_special', 'upload_resume_comprehensive', 'go_resume', 'go_questions', 'go_audio', 'go_report'].includes(action.type)) {
-    const targetJob = await resolveSuggestedJobForAction();
-    if (targetJob?.id) {
-      explicitTargetJobId = String(targetJob.id).trim();
-      await switchCurrentJobContext(targetJob, {
-        source: 'assistant_action',
-        actionType: String(action.type || '').trim()
-      });
-    }
+  const targetJob = await resolveSuggestedJobForAction();
+  if (targetJob?.id
+      && ['choose_special', 'choose_comprehensive', 'upload_resume_special', 'upload_resume_comprehensive', 'go_resume', 'go_questions', 'go_audio', 'go_report'].includes(action.type)) {
+    explicitTargetJobId = String(targetJob.id).trim();
+    await switchCurrentJobContext(targetJob, {
+      source: 'assistant_action',
+      actionType: String(action.type || '').trim()
+    });
+  }
+
+  if (isHistoryActionLike(action)) {
+    await goToHistoryPage(resolveHistoryTypeForAction(action), {
+      jobId: explicitTargetJobId,
+      source: 'assistant_action',
+      actionType: action.type,
+      label: action.label
+    });
+    return;
   }
 
   switch (action.type) {
     case 'choose_special':
       selectedEvaluationMode.value = 'SPECIAL';
-      await submitAssistantQuestion('我想做专项测评', { appendUserMessage: true });
+      await submitAssistantQuestion(buildAssistantActionQuestion(action, targetJob), { appendUserMessage: true });
       return;
     case 'choose_comprehensive':
       selectedEvaluationMode.value = 'COMPREHENSIVE';
-      await submitAssistantQuestion('我想做综合测评', { appendUserMessage: true });
+      await submitAssistantQuestion(buildAssistantActionQuestion(action, targetJob), { appendUserMessage: true });
       return;
     case 'upload_resume_special':
       selectedEvaluationMode.value = 'SPECIAL';
@@ -2053,6 +2496,30 @@ const runAssistantAction = async (action) => {
       return;
     case 'go_report':
       await goToModule(resolvedTargetModule || 'report', {
+        jobId: explicitTargetJobId,
+        source: 'assistant_action',
+        actionType: action.type,
+        label: action.label
+      });
+      return;
+    case 'view_resume_history':
+      await goToHistoryPage('resume', {
+        jobId: explicitTargetJobId,
+        source: 'assistant_action',
+        actionType: action.type,
+        label: action.label
+      });
+      return;
+    case 'view_questions_history':
+      await goToHistoryPage('questions', {
+        jobId: explicitTargetJobId,
+        source: 'assistant_action',
+        actionType: action.type,
+        label: action.label
+      });
+      return;
+    case 'view_audio_history':
+      await goToHistoryPage('audio', {
         jobId: explicitTargetJobId,
         source: 'assistant_action',
         actionType: action.type,
@@ -2122,20 +2589,26 @@ const extractResumeScoreFromAnalysis = (responseData) => {
 
 const markResumeCompletedInComprehensive = (score) => {
   const safeScore = Number(score) || 0;
-  comprehensiveState.value.resume = {
-    completed: true,
-    inProgress: false,
-    score: safeScore,
-    analysisId: `chat-${Date.now()}`,
-    startTime: comprehensiveState.value.resume.startTime || formatDateTimeUtc8(),
-    endTime: formatDateTimeUtc8(),
-    attempts: (comprehensiveState.value.resume.attempts || 0) + 1
-  };
-  comprehensiveState.value.overall = {
-    ...comprehensiveState.value.overall,
-    startTime: comprehensiveState.value.overall.startTime || formatDateTimeUtc8(),
-    status: 'in_progress'
-  };
+  const now = formatDateTimeUtc8();
+  persistComprehensiveAssessmentState((currentState) => {
+    const nextState = normalizeComprehensiveState(currentState);
+    nextState.resume = {
+      ...nextState.resume,
+      completed: true,
+      inProgress: false,
+      score: safeScore,
+      analysisId: nextState.resume.analysisId || `chat-${Date.now()}`,
+      startTime: nextState.resume.startTime || now,
+      endTime: now,
+      attempts: Math.max(1, Number(nextState.resume.attempts || 0) + 1)
+    };
+    nextState.overall = {
+      ...nextState.overall,
+      startTime: nextState.overall.startTime || now,
+      status: 'in_progress'
+    };
+    return nextState;
+  });
   appendSessionEvent('module_completed', {
     source: 'chat_resume_analysis',
     module: 'resume',
@@ -2198,6 +2671,7 @@ const analyzeResumeInChat = async (file) => {
 
   isResumeUploading.value = true;
   errorMessage.value = '';
+  isAiServiceUnavailable.value = false;
   try {
     const effectiveMode = selectedEvaluationMode.value === 'COMPREHENSIVE' ? 'COMPREHENSIVE' : 'SPECIAL';
     selectedEvaluationMode.value = effectiveMode;
@@ -2245,7 +2719,11 @@ const analyzeResumeInChat = async (file) => {
     );
   } catch (error) {
     console.error('聊天内简历分析失败:', error);
-    errorMessage.value = error.message || '聊天内简历分析失败，请重试';
+    const resolvedError = resolveAiRequestError(error);
+    isAiServiceUnavailable.value = resolvedError.isUnavailable;
+    errorMessage.value = resolvedError.isUnavailable
+      ? resolvedError.message
+      : (error.message || '聊天内简历分析失败，请重试');
   } finally {
     isResumeUploading.value = false;
   }
@@ -2265,12 +2743,12 @@ const chooseResumeInChat = () => {
     },
     fail: (error) => {
       console.error('选择简历失败:', error);
+      isAiServiceUnavailable.value = false;
       errorMessage.value = '选择简历失败，请重试';
     }
   });
 };
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const waitForNextPaint = () => new Promise((resolve) => {
   if (typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(() => resolve());
@@ -2322,8 +2800,6 @@ const ensureStreamingScrollToBottom = async (force = false) => {
   syncContainerToBottom(getChatScrollContainer());
 };
 
-let homeWelcomeTypingSeq = 0;
-
 async function startHomeWelcomeTyping(forceRestart = false) {
   if (!forceRestart && homeWelcomeText.value === HOME_WELCOME_MESSAGE) {
     return;
@@ -2338,11 +2814,6 @@ async function startHomeWelcomeTyping(forceRestart = false) {
     homeWelcomeText.value = HOME_WELCOME_MESSAGE.slice(0, index + chunkSize);
     await sleep(40);
   }
-}
-
-function stopHomeWelcomeTyping() {
-  homeWelcomeTypingSeq += 1;
-  homeWelcomeText.value = '';
 }
 
 const getStreamingDelay = (char, totalLength) => {
@@ -2504,6 +2975,7 @@ const canGenerateReport = computed(() => {
 });
 
 const resetComprehensiveState = () => {
+  currentComprehensiveAssessmentId.value = '';
   comprehensiveState.value = createDefaultComprehensiveState();
 };
 
@@ -2520,55 +2992,57 @@ const applyComprehensiveCompletion = ({ type = '', mode = '', score = 0 } = {}) 
   };
   const safeScore = Math.max(0, Number(score) || 0);
   const now = formatDateTimeUtc8();
-  const nextState = normalizeComprehensiveState(comprehensiveState.value);
-  if (safeMode === 'COMPREHENSIVE' || !safeMode) {
-    nextState.overall = {
-      ...nextState.overall,
-      startTime: nextState.overall.startTime || now,
-      endTime: safeType === 'audio_completed' ? now : nextState.overall.endTime,
-      status: safeType === 'audio_completed' ? 'completed' : 'in_progress'
-    };
-  }
-  if (safeType === 'resume_completed') {
-    nextState.resume = {
-      ...nextState.resume,
-      completed: true,
-      inProgress: false,
-      score: safeScore,
-      analysisId: nextState.resume.analysisId || `resume-${Date.now()}`,
-      startTime: nextState.resume.startTime || now,
-      endTime: now,
-      attempts: Math.max(1, Number(nextState.resume.attempts || 0) + 1)
-    };
-  } else if (safeType === 'questions_completed') {
-    nextState.questions = {
-      ...nextState.questions,
-      completed: true,
-      inProgress: false,
-      score: safeScore,
-      interviewId: nextState.questions.interviewId || `questions-${Date.now()}`,
-      startTime: nextState.questions.startTime || now,
-      endTime: now,
-      attempts: Math.max(1, Number(nextState.questions.attempts || 0) + 1)
-    };
-  } else if (safeType === 'audio_completed') {
-    nextState.audio = {
-      ...nextState.audio,
-      completed: true,
-      inProgress: false,
-      score: safeScore,
-      assessmentId: nextState.audio.assessmentId || `audio-${Date.now()}`,
-      startTime: nextState.audio.startTime || now,
-      endTime: now,
-      attempts: Math.max(1, Number(nextState.audio.attempts || 0) + 1)
-    };
-    nextState.overall.totalScore = Math.round((
-      Number(nextState.resume.score || 0)
-      + Number(nextState.questions.score || 0)
-      + Number(nextState.audio.score || 0)
-    ) / 3);
-  }
-  comprehensiveState.value = nextState;
+  persistComprehensiveAssessmentState((currentState) => {
+    const nextState = normalizeComprehensiveState(currentState);
+    if (safeMode === 'COMPREHENSIVE' || !safeMode) {
+      nextState.overall = {
+        ...nextState.overall,
+        startTime: nextState.overall.startTime || now,
+        endTime: safeType === 'audio_completed' ? now : nextState.overall.endTime,
+        status: safeType === 'audio_completed' ? 'completed' : 'in_progress'
+      };
+    }
+    if (safeType === 'resume_completed') {
+      nextState.resume = {
+        ...nextState.resume,
+        completed: true,
+        inProgress: false,
+        score: safeScore,
+        analysisId: nextState.resume.analysisId || `resume-${Date.now()}`,
+        startTime: nextState.resume.startTime || now,
+        endTime: now,
+        attempts: Math.max(1, Number(nextState.resume.attempts || 0) + 1)
+      };
+    } else if (safeType === 'questions_completed') {
+      nextState.questions = {
+        ...nextState.questions,
+        completed: true,
+        inProgress: false,
+        score: safeScore,
+        interviewId: nextState.questions.interviewId || `questions-${Date.now()}`,
+        startTime: nextState.questions.startTime || now,
+        endTime: now,
+        attempts: Math.max(1, Number(nextState.questions.attempts || 0) + 1)
+      };
+    } else if (safeType === 'audio_completed') {
+      nextState.audio = {
+        ...nextState.audio,
+        completed: true,
+        inProgress: false,
+        score: safeScore,
+        assessmentId: nextState.audio.assessmentId || `audio-${Date.now()}`,
+        startTime: nextState.audio.startTime || now,
+        endTime: now,
+        attempts: Math.max(1, Number(nextState.audio.attempts || 0) + 1)
+      };
+      nextState.overall.totalScore = Math.round((
+        Number(nextState.resume.score || 0)
+        + Number(nextState.questions.score || 0)
+        + Number(nextState.audio.score || 0)
+      ) / 3);
+    }
+    return nextState;
+  });
   appendSessionEvent('module_completed', {
     source: 'module_page',
     module: moduleMap[safeType] || '',
@@ -2608,28 +3082,40 @@ onShow(async () => {
 
 // 处理模块点击
 const handleModuleClick = async (moduleType, options = {}) => {
+  const navigationSource = String(options?.source || 'manual_click').trim();
+  const shouldReturnToAiChat = navigationSource === 'assistant_action';
+  const forcedMode = String(options?.mode || '').trim().toUpperCase();
+  if (navigationSource === 'manual_click' && !forcedMode) {
+    selectedEvaluationMode.value = 'COMPREHENSIVE';
+  } else if (forcedMode) {
+    selectedEvaluationMode.value = forcedMode;
+  }
   const effectiveJobId = String(options?.jobId || currentJobId.value || activeConversationRecord.value?.jobId || '').trim();
-  const currentSnapshot = syncCurrentSessionState();
-  const effectiveSessionId = getActivePersistentSessionId(String(currentSnapshot?.id || '').trim());
+  let currentSnapshot = syncCurrentSessionState();
   const eventPayload = {
-    source: String(options?.source || 'manual_click').trim(),
+    source: navigationSource,
     module: moduleType,
     jobId: effectiveJobId,
     mode: selectedEvaluationMode.value,
     actionType: String(options?.actionType || '').trim(),
     label: String(options?.label || '').trim()
   };
-  console.log('[AI Interview] 模块点击事件触发:', moduleType);
-  console.log('[AI Interview] canGenerateReport状态:', canGenerateReport.value);
-  console.log('[AI Interview] 当前jobId:', currentJobId.value);
-  console.log('[AI Interview] 本次跳转effectiveJobId:', effectiveJobId);
-  console.log('[AI Interview] 综合状态:', {
-    resume: comprehensiveState.value.resume.completed,
-    questions: comprehensiveState.value.questions.completed,
-    audio: comprehensiveState.value.audio.completed
-  });
 
   const isComprehensiveMode = selectedEvaluationMode.value === 'COMPREHENSIVE';
+  const comprehensiveSession = isComprehensiveMode
+    ? syncComprehensiveAssessmentState({
+        jobId: effectiveJobId,
+        assessmentId: route.query.assessmentId || currentComprehensiveAssessmentId.value || '',
+        createIfMissing: Boolean(effectiveJobId)
+      })
+    : null;
+  const effectiveAssessmentId = String(
+    options?.assessmentId
+    || comprehensiveSession?.assessmentId
+    || currentComprehensiveAssessmentId.value
+    || route.query.assessmentId
+    || ''
+  ).trim();
   const routes = isComprehensiveMode
     ? {
         resume: '/pages/comprehensive-resume/index',
@@ -2692,18 +3178,28 @@ const handleModuleClick = async (moduleType, options = {}) => {
       });
       return;
     }
-    console.log('[AI Interview] 综合报告就绪，准备跳转');
-    // 确保传递jobId参数到综合报告页面
     if (effectiveJobId) {
-      await flushConversationPersistence(currentSnapshot, effectiveJobId);
-      const reportUrl = `/pages/comprehensive-report/index?jobId=${effectiveJobId}&type=overall&from=ai-interview${effectiveSessionId ? `&sessionId=${encodeURIComponent(effectiveSessionId)}` : ''}`;
+      currentSnapshot = await flushConversationPersistence(currentSnapshot, effectiveJobId);
+      const effectiveSessionId = getActivePersistentSessionId(String(currentSnapshot?.chatId || currentSnapshot?.id || '').trim());
+      const reportQuery = [
+        `jobId=${encodeURIComponent(effectiveJobId)}`,
+        'type=overall',
+        `from=${encodeURIComponent(shouldReturnToAiChat ? 'ai-interview' : 'interview-main')}`,
+        `autoOpen=${shouldReturnToAiChat ? '1' : '0'}`
+      ];
+      if (effectiveAssessmentId) {
+        reportQuery.push(`assessmentId=${encodeURIComponent(effectiveAssessmentId)}`);
+      }
+      if (effectiveSessionId && shouldReturnToAiChat) {
+        reportQuery.push(`chatId=${encodeURIComponent(effectiveSessionId)}`);
+      }
+      const reportUrl = `/pages/comprehensive-report/index?${reportQuery.join('&')}`;
       appendSessionEvent('module_navigation_started', {
         ...eventPayload,
         meta: {
           route: reportUrl
         }
       });
-      console.log('[AI Interview] 跳转到综合报告页面，URL:', reportUrl);
       smoothPush(reportUrl);
     } else {
       await flushConversationPersistence(currentSnapshot);
@@ -2750,20 +3246,20 @@ const handleModuleClick = async (moduleType, options = {}) => {
     // 确保传递jobId参数
     if (effectiveJobId) {
       // 记录来源为AI面试页面
-      try {
-        sessionStorage.setItem('fromAiInterview', 'true');
-      } catch (err) {
-        console.error('无法保存来源页面信息:', err);
-      }
       const query = [
         `jobId=${encodeURIComponent(effectiveJobId)}`,
-        'from=ai-interview',
+        `from=${encodeURIComponent(shouldReturnToAiChat ? 'ai-interview' : 'interview-main')}`,
+        `autoOpen=${shouldReturnToAiChat ? '1' : '0'}`,
         `mode=${encodeURIComponent(selectedEvaluationMode.value || '')}`
       ];
-      if (effectiveSessionId) {
-        query.push(`sessionId=${encodeURIComponent(effectiveSessionId)}`);
+      if (effectiveAssessmentId && isComprehensiveMode) {
+        query.push(`assessmentId=${encodeURIComponent(effectiveAssessmentId)}`);
       }
-      await flushConversationPersistence(currentSnapshot, effectiveJobId);
+      currentSnapshot = await flushConversationPersistence(currentSnapshot, effectiveJobId);
+      const effectiveSessionId = getActivePersistentSessionId(String(currentSnapshot?.chatId || currentSnapshot?.id || '').trim());
+      if (effectiveSessionId && shouldReturnToAiChat) {
+        query.push(`chatId=${encodeURIComponent(effectiveSessionId)}`);
+      }
       const routeUrl = `${routes[moduleType]}?${query.join('&')}`;
       appendSessionEvent('module_navigation_started', {
         ...eventPayload,
@@ -2772,7 +3268,6 @@ const handleModuleClick = async (moduleType, options = {}) => {
         }
       });
       smoothPush(routeUrl);
-      console.log(`跳转到${moduleType}页面，携带jobId:`, effectiveJobId);
     } else {
       await flushConversationPersistence(currentSnapshot);
       appendSessionEvent('module_navigation_started', {
@@ -2789,11 +3284,10 @@ const handleModuleClick = async (moduleType, options = {}) => {
 
 // 生命周期钩子
 onMounted(async () => {
-  console.log('[Comprehensive Test] Component mounted');
   await enterPageFlow();
 
   uni.$on('resumeCompleted', (data) => {
-    const emittedSessionId = String(data?.sessionId || '').trim();
+    const emittedSessionId = String(data?.chatId || '').trim();
     if (!emittedSessionId || emittedSessionId === String(getActiveConversationUiId() || '').trim()) {
       applyComprehensiveCompletion({
         type: 'resume_completed',
@@ -2808,7 +3302,6 @@ onBeforeUnmount(() => {
   persistConversationState();
   try {
     uni.$off('resumeCompleted');
-    console.log('[Comprehensive Test] 已清理事件监听器');
   } catch (e) {
     console.warn('[Comprehensive Test] 清理事件监听器失败:', e);
   }
@@ -2816,7 +3309,6 @@ onBeforeUnmount(() => {
 
 // uni-app 生命周期
 onLoad(() => {
-  console.log('[Comprehensive Test] Page loaded');
 });
 
 const escapeHtml = (value) => String(value || '')
@@ -2923,6 +3415,7 @@ const messageInputRef = ref(null);
 
 // 错误处理相关状态
 const errorMessage = ref('');
+const isAiServiceUnavailable = ref(false);
 
 // 重试上一次的请求
 const retry = async () => {
@@ -2931,6 +3424,7 @@ const retry = async () => {
   
   if (lastUserMessage) {
     errorMessage.value = '';
+    isAiServiceUnavailable.value = false;
     await submitAssistantQuestion(lastUserMessage.content, { appendUserMessage: false });
   }
 };
@@ -3811,6 +4305,12 @@ button.session-delete-btn {
   margin-top: 5px;
 }
 
+.error-message.service-unavailable {
+  background: rgba(255, 159, 67, 0.12);
+  border-color: rgba(255, 159, 67, 0.35);
+  color: #ff9f43;
+}
+
 .error-message .retry-btn {
   background: none;
   border: 1px solid #ff4d4d;
@@ -3824,6 +4324,15 @@ button.session-delete-btn {
 
 .error-message .retry-btn:hover {
   background: rgba(255, 77, 77, 0.1);
+}
+
+.error-message.service-unavailable .retry-btn {
+  border-color: #ff9f43;
+  color: #ff9f43;
+}
+
+.error-message.service-unavailable .retry-btn:hover {
+  background: rgba(255, 159, 67, 0.12);
 }
 
 @keyframes thinkingDotPulse {
@@ -5241,6 +5750,12 @@ button.session-delete-btn {
   color: #d32f2f;
 }
 
+.eye-care .error-message.service-unavailable {
+  background: rgba(255, 159, 67, 0.08);
+  border-color: rgba(255, 159, 67, 0.22);
+  color: #c77700;
+}
+
 .eye-care .error-message .retry-btn {
   border-color: #d32f2f;
   color: #d32f2f;
@@ -5248,6 +5763,15 @@ button.session-delete-btn {
 
 .eye-care .error-message .retry-btn:hover {
   background: rgba(255, 77, 77, 0.05);
+}
+
+.eye-care .error-message.service-unavailable .retry-btn {
+  border-color: #c77700;
+  color: #c77700;
+}
+
+.eye-care .error-message.service-unavailable .retry-btn:hover {
+  background: rgba(255, 159, 67, 0.08);
 }
 
 .top-navigation {

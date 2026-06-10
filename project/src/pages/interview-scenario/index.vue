@@ -204,12 +204,12 @@ const router = useRouter();
 const route = useRoute();
 const isFromAiInterview = computed(() => route.query.from === 'ai-interview');
 const getAiSessionId = () => {
-  const routeSessionId = String(route.query.sessionId || '').trim();
+  const routeSessionId = String(route.query.chatId || '').trim();
   if (routeSessionId) {
     return routeSessionId;
   }
   try {
-    return String(sessionStorage.getItem('activeAiConversationSessionId') || '').trim();
+    return String(sessionStorage.getItem('activeAiConversationChatId') || '').trim();
   } catch (_) {
     return '';
   }
@@ -220,10 +220,11 @@ const buildInterviewAiReturnUrl = ({ completedType = '', mode = '', score = 0, t
   const safeSessionId = getAiSessionId();
   const safeCompletedType = String(completedType || '').trim();
   const safeMode = String(mode || '').trim();
+  const hasExplicitScore = score !== undefined && score !== null && String(score).trim() !== '';
   const safeScore = Math.max(0, Number(score) || 0);
   const safeTimestamp = String(timestamp || '').trim();
   if (safeSessionId) {
-    query.push(`sessionId=${encodeURIComponent(safeSessionId)}`);
+    query.push(`chatId=${encodeURIComponent(safeSessionId)}`);
   }
   if (safeCompletedType) {
     query.push(`completedType=${encodeURIComponent(safeCompletedType)}`);
@@ -231,7 +232,7 @@ const buildInterviewAiReturnUrl = ({ completedType = '', mode = '', score = 0, t
   if (safeMode) {
     query.push(`mode=${encodeURIComponent(safeMode)}`);
   }
-  if (safeScore > 0) {
+  if (hasExplicitScore) {
     query.push(`score=${encodeURIComponent(safeScore)}`);
   }
   if (safeTimestamp) {
@@ -693,11 +694,16 @@ const retryUpload = () => {
 
 const handleContinueInterview = async () => {
   try {
-    const jobId = uni.getStorageSync('currentJobId');
+    const jobId = String(
+      route.query.jobId
+      || uni.getStorageSync('currentJobId')
+      || ''
+    ).trim();
     
     if (!jobId) {
       throw new Error('请先选择职位');
     }
+    uni.setStorageSync('currentJobId', jobId);
 
     const latestAssessmentId = uni.getStorageSync('latestAudioAssessmentId');
     if (!latestAssessmentId) {

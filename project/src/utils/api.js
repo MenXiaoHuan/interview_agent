@@ -90,7 +90,7 @@ export const API = {
   AGENT_CONVERSATIONS: {
     LIST: `${BASE_URL}/api/agent-conversations`,
     UPSERT: `${BASE_URL}/api/agent-conversations/session`,
-    DELETE_BY_ID: (sessionId) => `${BASE_URL}/api/agent-conversations/${encodeURIComponent(sessionId)}`
+    DELETE_BY_ID: (chatId) => `${BASE_URL}/api/agent-conversations/${encodeURIComponent(chatId)}`
   },
   RANK: {
     COMPREHENSIVE: {
@@ -268,9 +268,9 @@ export function upsertAgentConversation(data) {
 }
 
 // 删除一个会话，后端会级联删除该 session 关联的 message/event/memory 记录。
-export function deleteAgentConversationById(sessionId) {
+export function deleteAgentConversationById(chatId) {
   return request({
-    url: API.AGENT_CONVERSATIONS.DELETE_BY_ID(sessionId),
+    url: API.AGENT_CONVERSATIONS.DELETE_BY_ID(chatId),
     method: 'delete'
   });
 }
@@ -423,7 +423,7 @@ export function callAiAgent(agentKey, params = {}, options = {}) {
     data: {
       agentKey,
       params,
-      sessionId: options.sessionId || ''
+      chatId: options.chatId || ''
     },
     headers: {
       'Content-Type': 'application/json'
@@ -520,11 +520,11 @@ export function getInterviewAssistantReply(payload) {
     }, { timeout: 120000 }).then((response) => normalizeAgentObjectResponse(response));
   }
   const safePayload = payload && typeof payload === 'object' ? { ...payload } : {}
-  const sessionId = safePayload.sessionId || ''
-  delete safePayload.sessionId
+  const chatId = safePayload.chatId || ''
+  delete safePayload.chatId
   return callAiAgent('interview-assistant', safePayload, {
     timeout: 120000,
-    sessionId
+    chatId
   }).then((response) => normalizeAgentObjectResponse(response));
 }
 

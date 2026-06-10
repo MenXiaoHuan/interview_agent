@@ -20,7 +20,7 @@ public interface AgentConversationSessionMapper {
             SELECT id,
                    user_id AS userId,
                    agent_key AS agentKey,
-                   session_id AS sessionId,
+                   chat_id AS chatId,
                    title,
                    preview,
                    created_at AS createdAt,
@@ -39,32 +39,32 @@ public interface AgentConversationSessionMapper {
             SELECT id,
                    user_id AS userId,
                    agent_key AS agentKey,
-                   session_id AS sessionId,
+                   chat_id AS chatId,
                    title,
                    preview,
                    created_at AS createdAt,
                    updated_at AS updatedAt
             FROM agent_conversation_session
             WHERE user_id = #{userId}
-              AND session_id = #{sessionId}
+              AND chat_id = #{conversationId}
             LIMIT 1
             """)
-    AgentConversationSessionEntity findByUserAndSessionId(
+    AgentConversationSessionEntity findByUserAndConversationId(
             @Param("userId") Long userId,
-            @Param("sessionId") String sessionId
+            @Param("conversationId") String conversationId
     );
 
     @Insert("""
             INSERT INTO agent_conversation_session (
                 user_id,
                 agent_key,
-                session_id,
+                chat_id,
                 title,
                 preview
             ) VALUES (
                 #{userId},
                 #{agentKey},
-                #{sessionId},
+                #{chatId},
                 #{title},
                 #{preview}
             )
@@ -91,7 +91,7 @@ public interface AgentConversationSessionMapper {
     @org.apache.ibatis.annotations.Delete("""
             DELETE FROM agent_conversation_session
             WHERE user_id = #{userId}
-              AND session_id = #{sessionId}
+              AND chat_id = #{conversationId}
             """)
-    int deleteByUserAndSessionId(@Param("userId") Long userId, @Param("sessionId") String sessionId);
+    int deleteByUserAndConversationId(@Param("userId") Long userId, @Param("conversationId") String conversationId);
 }

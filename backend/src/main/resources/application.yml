@@ -24,12 +24,12 @@ spring:
     path: /graphql
   ai:
     deepseek:
-      api-key: 
+      api-key: sk-fa7a2c9168a34bc3b38b91c8ea66b102
       base-url: https://api.deepseek.com
       chat:
         options:
           model: deepseek-chat
-          temperature: 0.7
+          temperature: 0.5
 
 mybatis:
   configuration:
@@ -61,15 +61,15 @@ xunfei:
     pitch: 50
     speed: 50
   ost:
-    appId: 
-    apiKey: 
-    apiSecret: 
+    appId: "d41f8f2c"
+    apiKey: "91ff9402ea218f8c8cb7e92e292eb768"
+    apiSecret: "YWRiZjdlMjkyMmM3ZWM0Y2Y3OTk1YmU5"
     upload-url: "https://upload-ost-api.xfyun.cn/file/upload"
     create-task-url: "https://ost-api.xfyun.cn/v2/ost/pro_create"
     query-task-url: "https://ost-api.xfyun.cn/v2/ost/query"
   Ultra:
     host-url: https://spark-api-open.xf-yun.com/v1/chat/completions
-    authorization: 
+    authorization: Bearer cgeuBwYpiXPURJJwLWRB:hpRgItqmvznWdGmNwtsi
   tupapi:
     host-url: http://tupapi.xfyun.cn/v1/expression
     appid: d41f8f2c
@@ -77,7 +77,7 @@ xunfei:
 logging:
   level:
     com.multimodal.interview: DEBUG
-    
+
 app:
   file:
     root: /home/file

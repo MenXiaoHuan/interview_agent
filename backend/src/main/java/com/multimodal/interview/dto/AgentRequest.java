@@ -27,7 +27,7 @@ public class AgentRequest {
      *
      * <p>用于为同一个 Agent 对话绑定会话级上下文与压缩记忆。</p>
      */
-    private String sessionId;
+    private String chatId;
 
     /**
      * 系统提示词（legacy 兼容字段）。

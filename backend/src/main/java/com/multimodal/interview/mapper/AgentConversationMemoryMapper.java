@@ -17,26 +17,26 @@ public interface AgentConversationMemoryMapper {
 
     @Select("""
             SELECT id,
-                   session_id AS sessionId,
+                   chat_id AS chatId,
                    summary_hash AS summaryHash,
                    summary_content AS summaryContent,
                    recent_turns_json AS recentTurnsJson,
                    created_at AS createdAt,
                    updated_at AS updatedAt
             FROM agent_conversation_memory
-            WHERE session_id = #{sessionId}
+            WHERE chat_id = #{chatId}
             LIMIT 1
             """)
-    AgentConversationMemory findBySessionId(@Param("sessionId") String sessionId);
+    AgentConversationMemory findByChatId(@Param("chatId") String chatId);
 
     @Insert("""
             INSERT INTO agent_conversation_memory (
-                session_id,
+                chat_id,
                 summary_hash,
                 summary_content,
                 recent_turns_json
             ) VALUES (
-                #{sessionId},
+                #{chatId},
                 #{summaryHash},
                 #{summaryContent},
                 #{recentTurnsJson}
@@ -57,7 +57,7 @@ public interface AgentConversationMemoryMapper {
 
     @Delete("""
             DELETE FROM agent_conversation_memory
-            WHERE session_id = #{sessionId}
+            WHERE chat_id = #{chatId}
             """)
-    int deleteBySessionId(@Param("sessionId") String sessionId);
+    int deleteByChatId(@Param("chatId") String chatId);
 }

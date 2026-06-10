@@ -23,13 +23,6 @@
     <!-- 主内容卡片 -->
     <div class="content-card">
       <div class="top-bar">
-        <div class="back-button" @click="handleBack">
-          <svg class="back-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <span>返回</span>
-        </div>
         <div class="holographic-header">
         <h1 class="page-title">简历评测</h1>
           <div class="title-glow"></div>
@@ -208,15 +201,20 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { onLoad, onUnload } from '@dcloudio/uni-app';
-import { uploadResume, analyzeComprehensiveResume, extractResumeContent, saveComprehensiveResumeHistory } from '@/utils/api';
+import { onLoad } from '@dcloudio/uni-app';
+import { analyzeComprehensiveResume, extractResumeContent, saveComprehensiveResumeHistory } from '@/utils/api';
 import { getUserSession } from '@/utils/user-session';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
 import { API } from '@/utils/api'; // 导入API配置
 import SmartIcon from '@/components/SmartIcon.vue';
+import {
+  ensureActiveComprehensiveAssessmentSession,
+  normalizeComprehensiveState,
+  updateComprehensiveAssessmentState
+} from '@/utils/comprehensive-assessment';
 
 const router = useRouter();
 const route = useRoute();
@@ -224,7 +222,8 @@ const userStore = useUserStore();
 const { isEyeCareMode } = storeToRefs(userStore);
 
 const jobId = ref(null);
-const sessionId = ref('');
+const chatId = ref('');
+const assessmentId = ref('');
 const jobName = ref('');
 const resumeFile = ref(null);
 const isAnalyzing = ref(false);
@@ -245,7 +244,6 @@ const isDragging = ref(false);
 
 const resumeId = ref(null);
 let pollingInterval = null;
-const maxPollingAttempts = 60;
 const pollingAttempts = ref(0);
 
 const analysisSteps = [
@@ -262,44 +260,60 @@ const analysisTips = [
   '正在生成详细的评测报告...'
 ];
 
-const buildInterviewAiReturnUrl = (extraQuery = {}) => {
+const shouldReturnToAiChat = () => {
+  return String(route.query.from || '').trim() === 'ai-interview'
+    || String(route.query.autoOpen || '').trim() === '1';
+};
+
+const buildNextComprehensiveStepUrl = () => {
+  const safeJobId = String(jobId.value || route.query.jobId || '').trim();
   const query = [];
-  query.push('autoOpen=1');
-  let safeSessionId = String(sessionId.value || '').trim();
-  if (!safeSessionId) {
-    try {
-      safeSessionId = String(sessionStorage.getItem('activeAiConversationSessionId') || '').trim();
-    } catch (_) {
-      safeSessionId = '';
-    }
-  }
-  const safeJobId = String(jobId.value || '').trim();
-  if (safeSessionId) {
-    query.push(`sessionId=${encodeURIComponent(safeSessionId)}`);
-  }
   if (safeJobId) {
     query.push(`jobId=${encodeURIComponent(safeJobId)}`);
   }
-  Object.entries(extraQuery).forEach(([key, value]) => {
-    const safeValue = String(value || '').trim();
-    if (safeValue) {
-      query.push(`${encodeURIComponent(key)}=${encodeURIComponent(safeValue)}`);
+  if (assessmentId.value) {
+    query.push(`assessmentId=${encodeURIComponent(assessmentId.value)}`);
+  }
+  const returnToAi = shouldReturnToAiChat();
+  query.push(`from=${encodeURIComponent(returnToAi ? 'ai-interview' : 'interview-main')}`);
+  query.push(`autoOpen=${returnToAi ? '1' : '0'}`);
+  if (returnToAi) {
+    const safeSessionId = String(chatId.value || route.query.chatId || '').trim();
+    if (safeSessionId) {
+      query.push(`chatId=${encodeURIComponent(safeSessionId)}`);
     }
-  });
-  return `/pages/interview-ai/index${query.length ? `?${query.join('&')}` : ''}`;
+  }
+  query.push('mode=COMPREHENSIVE');
+  return `/pages/comprehensive-questions/index?${query.join('&')}`;
 };
 
-const getFileIcon = computed(() => {
-  if (!resumeFile.value) return '';
-  const ext = resumeFile.value.name.split('.').pop().toLowerCase();
-  switch (ext) {
-    case 'pdf': return 'fa-file-pdf';
-    case 'doc':
-    case 'docx': return 'fa-file-word';
-    case 'txt': return 'fa-file-alt';
-    default: return 'fa-file';
+const initializeAssessmentSession = (incomingAssessmentId = '') => {
+  const safeJobId = String(jobId.value || route.query.jobId || '').trim();
+  if (!safeJobId) {
+    assessmentId.value = '';
+    return null;
   }
-});
+  const session = ensureActiveComprehensiveAssessmentSession(safeJobId, {
+    assessmentId: incomingAssessmentId || route.query.assessmentId || assessmentId.value || '',
+    createIfMissing: true
+  });
+  assessmentId.value = String(session?.assessmentId || '').trim();
+  if (!assessmentId.value) {
+    return session;
+  }
+  return updateComprehensiveAssessmentState(safeJobId, assessmentId.value, (currentState) => {
+    const nextState = normalizeComprehensiveState(currentState);
+    if (!nextState.resume.completed) {
+      nextState.resume.inProgress = true;
+      nextState.resume.startTime = nextState.resume.startTime || new Date().toISOString();
+    }
+    nextState.overall.startTime = nextState.overall.startTime || new Date().toISOString();
+    if (nextState.overall.status === 'not_started') {
+      nextState.overall.status = 'in_progress';
+    }
+    return nextState;
+  });
+};
 
 const getFileExtension = computed(() => {
   if (!resumeFile.value) return '';
@@ -477,9 +491,6 @@ const startAnalysis = async () => {
     return;
   }
   
-  // 使用标记记录是否已经显示loading
-  let showLoadingCalled = false;
-  
   try {
     // 显示分析中状态
     isAnalyzing.value = true;
@@ -585,98 +596,12 @@ const startAnalysis = async () => {
 };
 
 
-const handleBack = (event) => {
-  console.log('返回按钮被点击');
-  
-  // 阻止事件冒泡和默认行为，避免触发文件选择
-  if (event) {
-    event.stopPropagation();
-    event.preventDefault();
-  }
-  
-  // 延迟执行返回操作，确保完全避开文件选择触发
-  setTimeout(() => {
-    // 优先使用router跳转，更加可靠
-    try {
-      // 检查是否是从AI面试页面来的
-      const fromInterview = sessionStorage.getItem('fromAiInterview') === 'true';
-      const aiReturnUrl = buildInterviewAiReturnUrl();
-      
-      if (fromInterview && aiReturnUrl) {
-        // 返回到AI面试页面并带上jobId
-        console.log('返回AI面试页面:', aiReturnUrl);
-        uni.navigateTo({
-          url: aiReturnUrl,
-          success: () => console.log('成功跳转到AI面试页面'),
-          fail: (err) => {
-            console.error('跳转失败:', err);
-            // 备用方法
-            router.replace(aiReturnUrl);
-          }
-        });
-        return;
-      }
-      
-      // 尝试直接回退历史
-  uni.navigateBack({
-    delta: 1,
-        success: () => console.log('使用uni.navigateBack成功返回'),
-        fail: (err) => {
-          console.error('uni.navigateBack失败:', err);
-          try {
-            // 备用方案：使用router
-      router.back();
-            console.log('使用router.back()返回');
-          } catch (routerErr) {
-            console.error('router.back()也失败:', routerErr);
-            // 最后的备选方案：回到首页
-            router.replace('/pages/job-selection/index');
-          }
-        }
-      });
-    } catch (error) {
-      console.error('返回操作失败:', error);
-      
-      // 最后的方案，显示提示并跳转到首页
-      uni.showToast({
-        title: '返回失败，将跳转到首页',
-        icon: 'none',
-        duration: 1500
-      });
-      
-      setTimeout(() => {
-        router.replace('/pages/job-selection/index');
-      }, 1500);
-    }
-  }, 100);
-};
-
 const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-const resetState = () => {
-  resumeFile.value = null;
-  isAnalyzing.value = false;
-  analysisComplete.value = false;
-  progress.value = 0;
-  currentStep.value = 0;
-  currentStatus.value = '';
-  resumeScore.value = 0;
-  skillMatch.value = 0;
-  experienceMatch.value = 0;
-  educationMatch.value = 0;
-  communicationSkill.value = 0;
-  leadershipSkill.value = 0;
-  suggestions.value = [];
-  uploadError.value = '';
-  resumeId.value = null;
-  pollingAttempts.value = 0;
-  clearInterval(pollingInterval);
 };
 
 const resetAnalysisState = () => {
@@ -700,46 +625,27 @@ const resetAnalysisState = () => {
 const viewReport = async () => {
   // 立即更新简历评测模块的状态和分数
   try {
-    // 创建完整的状态对象，而不是依赖之前的状态
-    let state = {
-      resume: {
-        completed: true, 
+    const safeJobId = String(jobId.value || route.query.jobId || '').trim();
+    const savedSession = updateComprehensiveAssessmentState(safeJobId, assessmentId.value, (currentState) => {
+      const nextState = normalizeComprehensiveState(currentState);
+      nextState.resume = {
+        ...nextState.resume,
+        completed: true,
         inProgress: false,
-        score: resumeScore.value,
-        analysisId: resumeId.value,
+        score: Math.max(0, Number(resumeScore.value) || 0),
+        analysisId: resumeId.value || `resume_${Date.now()}`,
+        startTime: nextState.resume.startTime || new Date().toISOString(),
         endTime: new Date().toISOString(),
-        startTime: new Date().toISOString(), // 确保有值
-        attempts: 1
-      },
-      questions: {
-        completed: false,
-        inProgress: false,
-        score: 0,
-        attempts: 0,
-        interviewId: null,
-        startTime: null,
-        endTime: null
-      },
-      audio: {
-        completed: false,
-        inProgress: false,
-        score: 0,
-        assessmentId: null,
-        startTime: null,
-        endTime: null,
-        attempts: 0
-      },
-      overall: {
-        startTime: new Date().toISOString(),
-        endTime: null,
-        totalScore: 0,
+        attempts: Math.max(1, Number(nextState.resume.attempts || 0) + 1)
+      };
+      nextState.overall = {
+        ...nextState.overall,
+        startTime: nextState.overall.startTime || new Date().toISOString(),
         status: 'in_progress'
-      },
-      lastUpdated: new Date().toISOString(),
-      jobId: jobId.value // 保存当前jobId到状态中
-    };
-    
-    console.log('[Comprehensive Resume] 已更新状态并完成简历评测:', state);
+      };
+      return nextState;
+    });
+    assessmentId.value = String(savedSession?.assessmentId || assessmentId.value || '').trim();
     
     // 保存简历综合评估历史到后端
     try {
@@ -808,61 +714,49 @@ const viewReport = async () => {
     
     // 方法1：尝试使用uni.redirectTo直接跳转
     try {
-      const timestamp = Date.now();
-      const aiReturnUrl = buildInterviewAiReturnUrl({
-        completedType: 'resume',
-        mode: 'COMPREHENSIVE',
-        score: resumeScore.value,
-        timestamp
-      });
+      const targetUrl = buildNextComprehensiveStepUrl();
       
       setTimeout(() => {
         uni.redirectTo({
-          url: aiReturnUrl,
+          url: targetUrl,
           success: () => {
-            console.log('[Comprehensive Resume] 成功跳转到AI面试页面 (redirectTo)');
+            console.log('[Comprehensive Resume] 完成后跳转成功 (redirectTo)');
           },
           fail: (err) => {
             console.error('[Comprehensive Resume] redirectTo跳转失败:', err);
-            
-            // 方法2：尝试使用uni.navigateBack
-            uni.navigateBack({
-              delta: 1,
-              success: () => {
-                console.log('[Comprehensive Resume] 成功返回上一页 (navigateBack)');
-                // 发送通知告知AI面试页面需要刷新状态
-                try {
-                  uni.$emit('resumeCompleted', {
-                    score: resumeScore.value,
-                    timestamp: Date.now(),
-                    sessionId: sessionId.value
-                  });
-                } catch (emitError) {
-                  console.error('[Comprehensive Resume] 事件发送失败:', emitError);
-                }
-              },
-              fail: (backErr) => {
-                console.error('[Comprehensive Resume] navigateBack失败:', backErr);
-                
-                // 方法3：尝试使用router.push
-                try {
-                  router.replace(aiReturnUrl);
-                  console.log('[Comprehensive Resume] 使用router.replace尝试跳转');
-                } catch (routerErr) {
-                  console.error('[Comprehensive Resume] router.replace失败:', routerErr);
-                  
-                  // 最终方法：使用window.location强制导航
+            if (shouldReturnToAiChat()) {
+              uni.navigateBack({
+                delta: 1,
+                success: () => {
                   try {
+                    uni.$emit('resumeCompleted', {
+                      score: resumeScore.value,
+                      timestamp: Date.now(),
+                      chatId: chatId.value
+                    });
+                  } catch (emitError) {
+                    console.error('[Comprehensive Resume] 事件发送失败:', emitError);
+                  }
+                },
+                fail: () => {
+                  try {
+                    router.replace(targetUrl);
+                  } catch (routerErr) {
                     setTimeout(() => {
-                      console.log('[Comprehensive Resume] 尝试使用window.location导航');
-                      window.location.href = `/#${aiReturnUrl}`;
+                      window.location.href = `/#${targetUrl}`;
                     }, 500);
-                  } catch (navErr) {
-                    console.error('[Comprehensive Resume] 所有导航方法均失败');
                   }
                 }
-              }
-            });
+              });
+              return;
+            }
+            try {
+              router.replace(targetUrl);
+            } catch (routerErr) {
+              setTimeout(() => {
+                window.location.href = `/#${targetUrl}`;
+              }, 500);
+            }
           }
         });
       }, 1500);
@@ -871,7 +765,7 @@ const viewReport = async () => {
       
       // 备用方案：如果所有方法都失败，尝试最基本的router跳转
       setTimeout(() => {
-        router.push(buildInterviewAiReturnUrl());
+        router.push(buildNextComprehensiveStepUrl());
       }, 2000);
     }
     
@@ -881,7 +775,7 @@ const viewReport = async () => {
     
     // 即使保存失败，也尝试返回，不阻断用户流程
     setTimeout(() => {
-      router.replace(buildInterviewAiReturnUrl());
+      router.replace(buildNextComprehensiveStepUrl());
     }, 1500);
   }
 };
@@ -954,26 +848,6 @@ const getJobIdFromUrlOrStorage = () => {
 
 onLoad((options) => {
   console.log('comprehensive-resume onLoad触发, options:', options);
-  
-  // 记录页面来源
-  try {
-    if (options && options.from) {
-      sessionStorage.setItem('fromPage', options.from);
-      if (options.from === 'ai-interview') {
-        sessionStorage.setItem('fromAiInterview', 'true');
-        console.log('确认来源页面是AI面试');
-      }
-    } else {
-      // 尝试从referrer获取来源
-      const referrer = document.referrer || '';
-      if (referrer && (referrer.includes('ai-interview') || referrer.includes('interview'))) {
-        sessionStorage.setItem('fromAiInterview', 'true');
-        console.log('通过referrer确认来源页面是AI面试');
-      }
-    }
-  } catch (err) {
-    console.error('保存页面来源信息失败:', err);
-  }
 
   // 优先使用onLoad中传递的jobId
   if (options && options.jobId) {
@@ -1001,9 +875,10 @@ onLoad((options) => {
       });
     }
   }
-  if (options && options.sessionId) {
-    sessionId.value = String(options.sessionId || '').trim();
+  if (options && options.chatId) {
+    chatId.value = String(options.chatId || '').trim();
   }
+  initializeAssessmentSession(String(options?.assessmentId || '').trim());
   
   console.log('最终使用的jobId:', jobId.value);
   

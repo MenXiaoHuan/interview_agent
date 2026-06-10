@@ -12,6 +12,7 @@ import java.util.Map;
 @Data
 public class AgentConversationResponse {
     private String id;
+    private String chatId;
     private Long jobId;
     private String agentKey;
     private String title;

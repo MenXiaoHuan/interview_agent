@@ -128,4 +128,14 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> internalError(String message) {
         return error(ResultCode.INTERNAL_ERROR, message);
     }
+
+    /**
+     * 创建 503 错误响应。
+     *
+     * @param message 错误消息
+     * @return 响应对象
+     */
+    public static <T> ApiResponse<T> serviceUnavailable(String message) {
+        return error(ResultCode.SERVICE_UNAVAILABLE, message);
+    }
 }

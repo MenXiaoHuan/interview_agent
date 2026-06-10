@@ -44,13 +44,6 @@
     <div class="content-wrapper">
       <!-- 顶部导航 -->
       <div class="top-nav">
-        <div class="back-button" @click="handleBack">
-          <svg class="back-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <span>返回</span>
-        </div>
         <div class="timer">
           <SmartIcon name="fas fa-clock" />
           <span>{{ formatTime(remainingTime) }}</span>
@@ -314,6 +307,11 @@ import SmartIcon from '@/components/SmartIcon.vue';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
 import { getAudioProcessorWorkletUrl } from '@/utils/audio-processor';
+import {
+  ensureActiveComprehensiveAssessmentSession,
+  normalizeComprehensiveState,
+  updateComprehensiveAssessmentState
+} from '@/utils/comprehensive-assessment';
 
 
 const router = useRouter();
@@ -366,6 +364,7 @@ const aiAssessment = ref({ // 结构化结果
   questions: [],
   totalScore: 0
 });
+const assessmentId = ref('');
 
 
 
@@ -376,29 +375,91 @@ const currentQuestion = computed(() => questions.value[currentQuestionIndex.valu
 
 const buildInterviewAiReturnUrl = (extraQuery = {}) => {
   const query = [];
-  query.push('autoOpen=1');
-  let safeSessionId = String(route.query.sessionId || '').trim();
-  if (!safeSessionId) {
-    try {
-      safeSessionId = String(sessionStorage.getItem('activeAiConversationSessionId') || '').trim();
-    } catch (_) {
-      safeSessionId = '';
+  const shouldAutoOpen = String(route.query.autoOpen || '').trim() === '1';
+  query.push(`autoOpen=${shouldAutoOpen ? '1' : '0'}`);
+  let safeSessionId = '';
+  if (shouldAutoOpen) {
+    safeSessionId = String(route.query.chatId || '').trim();
+    if (!safeSessionId) {
+      try {
+        safeSessionId = String(sessionStorage.getItem('activeAiConversationChatId') || '').trim();
+      } catch (_) {
+        safeSessionId = '';
+      }
     }
   }
   const safeJobId = String(route.query.jobId || '').trim();
   if (safeSessionId) {
-    query.push(`sessionId=${encodeURIComponent(safeSessionId)}`);
+    query.push(`chatId=${encodeURIComponent(safeSessionId)}`);
   }
   if (safeJobId) {
     query.push(`jobId=${encodeURIComponent(safeJobId)}`);
   }
+  if (assessmentId.value) {
+    query.push(`assessmentId=${encodeURIComponent(assessmentId.value)}`);
+  }
   Object.entries(extraQuery).forEach(([key, value]) => {
-    const safeValue = String(value || '').trim();
+    const safeValue = String(value ?? '').trim();
     if (safeValue) {
       query.push(`${encodeURIComponent(key)}=${encodeURIComponent(safeValue)}`);
     }
   });
   return `/pages/interview-ai/index${query.length ? `?${query.join('&')}` : ''}`;
+};
+
+const shouldReturnToAiChat = () => {
+  return String(route.query.from || '').trim() === 'ai-interview'
+    || String(route.query.autoOpen || '').trim() === '1';
+};
+
+const buildComprehensiveReportUrl = () => {
+  const safeJobId = String(route.query.jobId || '').trim();
+  const query = [];
+  if (safeJobId) {
+    query.push(`jobId=${encodeURIComponent(safeJobId)}`);
+  }
+  if (assessmentId.value) {
+    query.push(`assessmentId=${encodeURIComponent(assessmentId.value)}`);
+  }
+  query.push('type=overall');
+  const returnToAi = shouldReturnToAiChat();
+  query.push(`from=${encodeURIComponent(returnToAi ? 'ai-interview' : 'interview-main')}`);
+  query.push(`autoOpen=${returnToAi ? '1' : '0'}`);
+  if (returnToAi) {
+    const safeSessionId = String(route.query.chatId || '').trim();
+    if (safeSessionId) {
+      query.push(`chatId=${encodeURIComponent(safeSessionId)}`);
+    }
+  }
+  return `/pages/comprehensive-report/index?${query.join('&')}`;
+};
+
+const initializeAssessmentSession = () => {
+  const safeJobId = String(route.query.jobId || getJobIdFromUrlOrStorage() || '').trim();
+  if (!safeJobId) {
+    assessmentId.value = '';
+    return null;
+  }
+  const session = ensureActiveComprehensiveAssessmentSession(safeJobId, {
+    assessmentId: route.query.assessmentId || assessmentId.value || '',
+    createIfMissing: true
+  });
+  assessmentId.value = String(session?.assessmentId || '').trim();
+  if (!assessmentId.value) {
+    return session;
+  }
+  return updateComprehensiveAssessmentState(safeJobId, assessmentId.value, (currentState) => {
+    const nextState = normalizeComprehensiveState(currentState);
+    if (!nextState.audio.completed) {
+      nextState.audio.inProgress = true;
+      nextState.audio.startTime = nextState.audio.startTime || new Date().toISOString();
+    }
+    nextState.overall.startTime = nextState.overall.startTime || new Date().toISOString();
+    if (nextState.overall.status === 'not_started') {
+      nextState.overall.status = 'in_progress';
+    }
+    return nextState;
+  });
 };
 
 // 方法
@@ -554,6 +615,14 @@ function shuffleTips(tips) {
   return shuffled;
 }
 
+const hasEffectiveAnswer = (value) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return false;
+  }
+  return !/^(?:\(无回答\)|无回答|未作答|暂无回答|跳过|不知道|不清楚)$/i.test(normalized);
+};
+
 // 确保显示所有5个题目的函数
 function ensureAllQuestions(aiQuestions) {
   const allQuestions = [];
@@ -571,7 +640,7 @@ function ensureAllQuestions(aiQuestions) {
       // 如果找到AI分析的题目，使用AI的结果
       allQuestions.push({
         question: questions.value[i]?.text || `场景题${i+1}`,
-        userAnswer: questions.value[i]?.userAnswer || '(无回答)',
+        userAnswer: hasEffectiveAnswer(questions.value[i]?.userAnswer) ? questions.value[i]?.userAnswer : '',
         score: aiQuestion.score || 0,
         comment: aiQuestion.comment || '暂无点评',
         strengths: aiQuestion.strengths || [],
@@ -584,7 +653,7 @@ function ensureAllQuestions(aiQuestions) {
       // 如果没有找到AI分析的题目，创建默认题目
       allQuestions.push({
         question: questions.value[i]?.text || `场景题${i+1}`,
-        userAnswer: questions.value[i]?.userAnswer || '(无回答)',
+        userAnswer: hasEffectiveAnswer(questions.value[i]?.userAnswer) ? questions.value[i]?.userAnswer : '',
         score: 0,
         comment: '该题目未进行分析',
         strengths: [],
@@ -1308,29 +1377,12 @@ const nextQuestion = async () => {
   }
 };
 
-const handleBack = () => {
-  if (!isComplete.value) {
-    uni.showModal({
-      title: '提示',
-      content: '确定要退出场景评测吗？已进行的评测将不会保存。',
-      success: (res) => {
-        if (res.confirm) {
-          router.replace(buildInterviewAiReturnUrl());
-        }
-      }
-    });
-  } else {
-    router.replace(buildInterviewAiReturnUrl());
-  }
-};
-
-
-
 // 构建评估载荷的辅助函数 - 用于构造AI分析的请求
 function buildAssessmentPayload() {
   return questions.value.map(q => ({
     question: q.text,
-    answer: q.userAnswer || '(无回答)'
+    answer: hasEffectiveAnswer(q.userAnswer) ? String(q.userAnswer || '').trim() : '',
+    hasAnswer: hasEffectiveAnswer(q.userAnswer)
   }));
 }
 
@@ -1474,7 +1526,7 @@ const handleAssessmentCompletion = async () => {
             }
           }).catch(e => {
             console.error(`题目${i+1}转写失败:`, e);
-            q.userAnswer = '(无回答)';
+            q.userAnswer = '';
           });
 
           // 减少题目间的延迟，提高处理速度
@@ -1482,10 +1534,10 @@ const handleAssessmentCompletion = async () => {
           
         } catch (e) {
           console.error(`题目${i+1}处理错误:`, e);
-          q.userAnswer = '(无回答)';
+          q.userAnswer = '';
         }
       } else {
-        q.userAnswer = '(无回答)';
+        q.userAnswer = '';
       }
     }
 
@@ -1493,11 +1545,6 @@ const handleAssessmentCompletion = async () => {
     customLoadingText.value = 'ai正在综合评分，请稍后...';
 
     // 构造所有题目的payload
-    const allQAPayload = questions.value.map(q => ({
-      question: q.text,
-      answer: q.userAnswer || '(无回答)'
-    }));
-
     const analysisPayload = buildAssessmentPayload();
     
     // 调用讯飞大模型API，增加重试机制
@@ -1572,6 +1619,40 @@ const handleAssessmentCompletion = async () => {
         questions: ensureAllQuestions(parsedResult.questions ?? []),
         keyImprovements: parsedResult.keyImprovements ?? []
       };
+
+      standardizedResult.questions = standardizedResult.questions.map((item, index) => {
+        const hasAnswer = hasEffectiveAnswer(questions.value[index]?.userAnswer || item?.userAnswer || '');
+        if (hasAnswer) {
+          return item;
+        }
+        return {
+          ...item,
+          score: 0,
+          comment: '本题未作答，未计分。',
+          strengths: [],
+          weaknesses: ['未提供有效回答'],
+          improvement: '先完成作答，再根据题目核心补充结构化回答。'
+        };
+      });
+
+      const answeredCount = standardizedResult.questions.filter((item) => hasEffectiveAnswer(item?.userAnswer || '')).length;
+      if (answeredCount === 0) {
+        standardizedResult.dimensions = {
+          fluency: 0,
+          relevance: 0,
+          adaptability: 0,
+          professionalism: 0,
+          completeness: 0
+        };
+        standardizedResult.detailScores = {
+          fluency: 0,
+          emotion: 0,
+          relevance: 0,
+          adaptability: 0
+        };
+        standardizedResult.overallComment = '本次场景评测未检测到有效作答，因此不计分。';
+        standardizedResult.keyImprovements = ['先完成每道场景题作答，再查看 AI 点评。'];
+      }
       
       aiAssessment.value = standardizedResult;
       const sumScore = (standardizedResult.questions || []).reduce((s, q) => s + Number(q?.score || 0), 0);
@@ -1625,27 +1706,27 @@ const handleAssessmentCompletion = async () => {
     totalTime.value = Math.floor((Date.now() - startTime.value) / 1000);
 
     
-    // 更新localStorage中的状态
-    try {
-      const savedState = uni.getStorageSync('comprehensiveTestState');
-      let state = savedState ? JSON.parse(savedState) : {};
-
-      // 使用audio字段而不是scene字段，以保持与AI面试主界面的兼容
-      state.audio = {
+    const safeJobId = String(route.query.jobId || getJobIdFromUrlOrStorage() || '').trim();
+    const savedSession = updateComprehensiveAssessmentState(safeJobId, assessmentId.value, (currentState) => {
+      const nextState = normalizeComprehensiveState(currentState);
+      nextState.audio = {
+        ...nextState.audio,
         completed: true,
         inProgress: false,
-        score: Math.max(0, Math.min(100, parseInt(overallScore.value))),
-        assessmentId: 'scene_assessment_' + Date.now(),
+        score: Math.max(0, Math.min(100, parseInt(overallScore.value, 10) || 0)),
+        assessmentId: nextState.audio.assessmentId || `scene_assessment_${Date.now()}`,
+        startTime: nextState.audio.startTime || new Date(Date.now() - totalTime.value * 1000).toISOString(),
         endTime: new Date().toISOString(),
-        attempts: state.audio?.attempts || 0
+        attempts: Math.max(1, Number(nextState.audio.attempts || 0) + 1)
       };
-      state.lastUpdated = new Date().toISOString();
-
-      uni.setStorageSync('comprehensiveTestState', JSON.stringify(state));
-      console.log('[Scene Assessment] Updated state in localStorage after completion:', state);
-    } catch (error) {
-      console.error('[Scene Assessment] Error updating state in localStorage:', error);
-    }
+      nextState.overall = {
+        ...nextState.overall,
+        startTime: nextState.overall.startTime || new Date(Date.now() - totalTime.value * 1000).toISOString(),
+        status: 'in_progress'
+      };
+      return nextState;
+    });
+    assessmentId.value = String(savedSession?.assessmentId || assessmentId.value || '').trim();
   } catch (e) {
     console.error('评测完成处理失败:', e);
     uni.showToast({
@@ -1709,22 +1790,16 @@ const goToMainComprehensivePage = async () => {
     let jobId = (route.query.jobId || getJobIdFromUrlOrStorage() || '').toString().trim();
     const userId = Number((getUserSession() || {}).userId || userStore.userId || 0);
     const timestamp = Date.now();
-    const aiReturnUrl = buildInterviewAiReturnUrl({
-      completedType: 'audio',
-      mode: 'COMPREHENSIVE',
-      score: overallScore.value,
-      timestamp
+    const targetUrl = buildComprehensiveReportUrl();
+    const savedSession = ensureActiveComprehensiveAssessmentSession(jobId, {
+      assessmentId: assessmentId.value,
+      createIfMissing: false
     });
-    // 先读取旧状态
-    let old = {};
-    const savedState = uni.getStorageSync('comprehensiveTestState');
-    if (savedState) {
-      old = JSON.parse(savedState);
-    }
+    const savedState = normalizeComprehensiveState(savedSession?.state);
     // 组装保存历史参数
     // 使用ISO格式的时间字符串，符合API要求
     const endTime = new Date().toISOString();
-    const startTimeISO = old.audio?.startTime || new Date(Date.now() - totalTime.value * 1000).toISOString();
+    const startTimeISO = savedState.audio?.startTime || new Date(Date.now() - totalTime.value * 1000).toISOString();
     const params = {
       userId: parseInt(userId),
       jobId: parseInt(jobId),
@@ -1749,44 +1824,6 @@ const goToMainComprehensivePage = async () => {
       console.error('保存场景评测历史失败:', e);
       uni.showToast({ title: '历史保存失败: ' + (e.message || '未知错误'), icon: 'none', duration: 2000 });
     }
-    // 构造新状态，audio 字段用当前评测结果，其它字段用旧状态或默认值
-    let state = {
-      resume: old.resume || {
-        completed: false,
-        inProgress: false,
-        score: 0,
-        analysisId: null,
-        startTime: null,
-        endTime: null,
-        attempts: 0
-      },
-      questions: old.questions || {
-        completed: false,
-        inProgress: false,
-        score: 0,
-        interviewId: null,
-        startTime: null,
-        endTime: null,
-        attempts: 0
-      },
-      audio: {
-        completed: true,
-        inProgress: false,
-        score: overallScore.value,
-        assessmentId: 'scene_assessment_' + timestamp,
-        endTime: new Date().toISOString(),
-        startTime: old.audio?.startTime || new Date().toISOString(),
-        attempts: (old.audio?.attempts || 0) + 1
-      },
-      overall: old.overall || {
-        startTime: new Date().toISOString(),
-        endTime: null,
-        totalScore: 0,
-        status: 'in_progress'
-      },
-      lastUpdated: new Date().toISOString(),
-      jobId: jobId
-    };
     // 写入 currentJobId
     if (jobId) {
       uni.setStorageSync('currentJobId', jobId);
@@ -1804,15 +1841,15 @@ const goToMainComprehensivePage = async () => {
     setTimeout(() => {
       try {
         uni.reLaunch({
-          url: aiReturnUrl,
+          url: targetUrl,
           success: () => {
             uni.hideLoading();
           },
           fail: (err) => {
             uni.hideLoading();
             uni.redirectTo({
-              url: aiReturnUrl,
-              fail: (redirectErr) => {
+              url: targetUrl,
+              fail: () => {
                 uni.showToast({ title: '导航失败，请手动返回', icon: 'none' });
               }
             });
@@ -1820,14 +1857,14 @@ const goToMainComprehensivePage = async () => {
         });
       } catch (error) {
         setTimeout(() => {
-          router.replace(aiReturnUrl);
+          router.replace(targetUrl);
         }, 2000);
       }
     }, 800);
   } catch (error) {
     uni.showToast({ title: '状态保存失败，请重试', icon: 'error' });
     setTimeout(() => {
-      router.replace(buildInterviewAiReturnUrl());
+      router.replace(buildComprehensiveReportUrl());
     }, 2000);
   }
 };
@@ -1846,6 +1883,7 @@ function getJobInfo() {
 let mainTimer = null;
 
 onMounted(() => {
+  initializeAssessmentSession();
   // #ifndef H5
   initRecorder();
   // #endif

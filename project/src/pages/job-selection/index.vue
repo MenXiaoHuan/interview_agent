@@ -84,6 +84,7 @@ import { storeToRefs } from 'pinia';
 import FancySelect from '@/components/FancySelect.vue';
 import { getUserSession } from '@/utils/user-session';
 import { applyAvatarFallback, resolveUserAvatar } from '@/utils/avatar';
+import { createNewComprehensiveAssessmentSession } from '@/utils/comprehensive-assessment';
 
 const router = useRouter();
 const jobStore = useJobStore();
@@ -244,14 +245,13 @@ const handleStartInterview = () => {
     uni.removeStorageSync('resumeAnalysis');
     uni.removeStorageSync('interviewQuestions');
     uni.removeStorageSync('comprehensiveReport');
-    uni.removeStorageSync('comprehensiveTestState');
     uni.removeStorageSync('currentJobId');
     uni.removeStorageSync('currentJobInfo');
 
     // 设置新的初始状态和当前选中的岗位ID/信息
     uni.setStorageSync('interviewState', JSON.stringify(defaultSpecializedState));
-    uni.setStorageSync('comprehensiveTestState', JSON.stringify(defaultComprehensiveState));
     uni.setStorageSync('currentJobId', selectedJob.value);
+    createNewComprehensiveAssessmentSession(selectedJob.value);
     
     // 获取选中的岗位完整信息（如果JobStore中可用）
     const jobInfo = jobs.value.find(job => job.id === selectedJob.value);

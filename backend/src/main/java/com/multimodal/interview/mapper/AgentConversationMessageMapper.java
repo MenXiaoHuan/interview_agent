@@ -18,26 +18,26 @@ public interface AgentConversationMessageMapper {
 
     @Select("""
             SELECT id,
-                   session_id AS sessionId,
+                   chat_id AS chatId,
                    turn_no AS turnNo,
                    role,
                    content,
                    created_at AS createdAt
             FROM agent_conversation_message
-            WHERE session_id = #{sessionId}
+            WHERE chat_id = #{chatId}
             ORDER BY id ASC
             """)
-    List<AgentConversationMessageEntity> findBySessionId(@Param("sessionId") String sessionId);
+    List<AgentConversationMessageEntity> findByChatId(@Param("chatId") String chatId);
 
     @Insert("""
             INSERT INTO agent_conversation_message (
-                session_id,
+                chat_id,
                 turn_no,
                 role,
                 content,
                 created_at
             ) VALUES (
-                #{sessionId},
+                #{chatId},
                 #{turnNo},
                 #{role},
                 #{content},
@@ -49,7 +49,7 @@ public interface AgentConversationMessageMapper {
 
     @Delete("""
             DELETE FROM agent_conversation_message
-            WHERE session_id = #{sessionId}
+            WHERE chat_id = #{chatId}
             """)
-    int deleteBySessionId(@Param("sessionId") String sessionId);
+    int deleteByChatId(@Param("chatId") String chatId);
 }

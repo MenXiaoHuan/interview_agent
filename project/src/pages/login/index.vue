@@ -32,19 +32,19 @@
               </svg>
             </span>
             <input
+              ref="usernameInputRef"
               type="text"
               class="cosmic-form-input"
               placeholder="请输入您的账号"
               maxlength="16"
               v-model="loginForm.username"
-              autocomplete="off"
+              autocomplete="username"
               autocapitalize="off"
               autocorrect="off"
               spellcheck="false"
               name="no-autofill-user-123"
-              :readonly="readonlyUser"
-              @focus="readonlyUser = false"
-              @keydown.enter.prevent="unlockPasswordInput"
+              @keydown.enter.prevent.stop="unlockPasswordInput"
+              @keyup.enter.prevent.stop
             />
           </div>
         </div>
@@ -58,15 +58,14 @@
               </svg>
             </span>
             <input
+              ref="passwordInputRef"
               type="password"
               class="cosmic-form-input"
               placeholder="请输入您的密码"
               v-model="loginForm.password"
-              autocomplete="new-password"
+              autocomplete="current-password"
               name="no-autofill-pass-456"
-              :readonly="readonlyPass"
-              @focus="readonlyPass = false"
-              @keydown.enter.prevent="handleLogin"
+              @keydown.enter.prevent.stop="handleLogin"
             />
           </div>
         </div>
@@ -139,7 +138,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, onUnmounted } from 'vue'
+import { reactive, ref, computed, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { onMounted } from 'vue'
 import request from '@/utils/request'
@@ -154,10 +153,27 @@ const loginForm = reactive({
   password: ''
 })
 
-// 新增防自动填充的readonly变量
-const readonlyUser = ref(true)
-const readonlyPass = ref(true)
 const isTransitioning = ref(false)
+const usernameInputRef = ref(null)
+const passwordInputRef = ref(null)
+
+const isHtmlElement = (node) => typeof HTMLElement !== 'undefined' && node instanceof HTMLElement
+const resolveNativeInput = (inputRefLike) => {
+  const candidate = inputRefLike?.$el || inputRefLike
+  if (!candidate) return null
+  if (isHtmlElement(candidate)) {
+    if (typeof candidate.matches === 'function' && candidate.matches('input, textarea')) {
+      return candidate
+    }
+    return typeof candidate.querySelector === 'function'
+      ? candidate.querySelector('input, textarea, .uni-input-input')
+      : null
+  }
+  if (typeof candidate?.querySelector === 'function') {
+    return candidate.querySelector('input, textarea, .uni-input-input')
+  }
+  return null
+}
 
 // 在页面加载时，强制清空表单和旧的登录状态
 onMounted(() => {
@@ -171,8 +187,35 @@ onMounted(() => {
   userStore.clearUserInfo();
 })
 
-const unlockPasswordInput = () => {
-  readonlyPass.value = false
+const forceFocusInput = (input) => {
+  const nativeInput = resolveNativeInput(input)
+  if (!nativeInput || typeof nativeInput.focus !== 'function') {
+    return
+  }
+  nativeInput.focus()
+  if (typeof nativeInput.select === 'function') {
+    nativeInput.select()
+  }
+}
+
+const focusPasswordInput = async () => {
+  await nextTick()
+  const passwordInput = passwordInputRef.value
+  if (!passwordInput) return
+  forceFocusInput(passwordInput)
+  setTimeout(() => forceFocusInput(passwordInput), 0)
+  setTimeout(() => forceFocusInput(passwordInput), 48)
+  setTimeout(() => forceFocusInput(passwordInput), 120)
+}
+
+const unlockPasswordInput = async (event) => {
+  event?.preventDefault?.()
+  event?.stopPropagation?.()
+  const usernameInput = resolveNativeInput(usernameInputRef.value)
+  if (usernameInput && typeof usernameInput.blur === 'function') {
+    usernameInput.blur()
+  }
+  await focusPasswordInput()
 }
 
 const handleLogin = async () => {

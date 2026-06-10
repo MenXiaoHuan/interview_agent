@@ -3,6 +3,7 @@ package com.multimodal.interview.reactagent;
 import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.multimodal.interview.common.exception.BusinessException;
@@ -40,6 +41,22 @@ public class ReactAgentRouter {
     private static final Gson GSON = new Gson();
     private static final Pattern JSON_CODE_BLOCK_PATTERN = Pattern.compile("```(?:json)?\\s*([\\s\\S]*?)```", Pattern.CASE_INSENSITIVE);
     private static final Pattern JSON_OBJECT_PATTERN = Pattern.compile("\\{[\\s\\S]*\\}");
+    private static final List<String> AI_UNAVAILABLE_KEYWORDS = List.of(
+            "insufficient",
+            "balance",
+            "quota",
+            "billing",
+            "payment required",
+            "余额不足",
+            "欠费",
+            "充值",
+            "用量超限",
+            "rate limit",
+            "api key",
+            "model is overloaded",
+            "service unavailable",
+            "temporarily unavailable"
+    );
     private static final Map<String, Class<?>> STRUCTURED_OUTPUT_TYPES = Map.of(
             "resume-analysis", AgentStructuredOutputs.ResumeAnalysisResult.class,
             "scenario-evaluation", AgentStructuredOutputs.ScenarioEvaluationResult.class,
@@ -74,7 +91,7 @@ public class ReactAgentRouter {
      * @param params 业务参数（来自前端）
      * @return 模型最终输出。结构化 agent 返回对象；对话类 agent 返回字符串。
      */
-    public Object run(String agentKey, Map<String, Object> params, String sessionId) {
+    public Object run(String agentKey, Map<String, Object> params, String chatId) {
         if (agentKey == null || agentKey.isBlank()) {
             throw BusinessException.badRequest("agentKey不能为空");
         }
@@ -85,18 +102,27 @@ public class ReactAgentRouter {
         try {
             Map<String, Object> safeParams = params == null ? Map.of() : params;
             if ("interview-assistant".equals(agentKey)) {
-                safeParams = interviewAssistantMemoryService.enrichParams(sessionId, safeParams);
+                safeParams = interviewAssistantMemoryService.enrichParams(chatId, safeParams);
             }
             String userContent = buildUserContent(agentKey, safeParams);
             AssistantMessage message = agent.call(new UserMessage(userContent));
             String text = message == null ? "" : String.valueOf(message.getText());
             Object output = parseAgentOutput(agentKey, text, safeParams);
             if ("interview-assistant".equals(agentKey) && output instanceof AgentStructuredOutputs.InterviewAssistantResult result) {
-                interviewAssistantMemoryService.rememberAssistantReply(sessionId, safeParams, result.getReply());
+                interviewAssistantMemoryService.rememberAssistantReply(chatId, safeParams, result.getReply());
             }
             return output;
+        } catch (BusinessException exception) {
+            throw exception;
         } catch (GraphRunnerException exception) {
-            throw BusinessException.internalError("Agent执行失败: " + exception.getMessage());
+            log.error("Agent运行时调用失败, agentKey={}, message={}", agentKey, exception.getMessage(), exception);
+            throw BusinessException.serviceUnavailable("AI 服务当前不可用");
+        } catch (RuntimeException exception) {
+            if (looksLikeAiServiceFailure(exception.getMessage())) {
+                log.error("Agent疑似模型服务异常, agentKey={}, message={}", agentKey, exception.getMessage(), exception);
+                throw BusinessException.serviceUnavailable("AI 服务当前不可用");
+            }
+            throw exception;
         }
     }
 
@@ -106,6 +132,13 @@ public class ReactAgentRouter {
             return rawText == null ? "" : rawText;
         }
         String candidate = extractJsonCandidate(rawText);
+        if (looksLikeAiServiceFailure(candidate) || looksLikeAiServiceFailure(rawText)) {
+            log.error("Agent返回模型服务错误载荷, agentKey={}, rawText={}, candidate={}",
+                    agentKey,
+                    abbreviate(rawText),
+                    abbreviate(candidate));
+            throw BusinessException.serviceUnavailable("AI 服务当前不可用");
+        }
         try {
             Object parsed = objectMapper.readValue(candidate, outputType);
             if ("interview-assistant".equals(agentKey)
@@ -119,8 +152,87 @@ public class ReactAgentRouter {
                     abbreviate(rawText),
                     abbreviate(candidate),
                     exception);
+            if (looksLikeAiServiceFailure(candidate) || looksLikeAiServiceFailure(rawText)) {
+                throw BusinessException.serviceUnavailable("AI 服务当前不可用");
+            }
             throw BusinessException.internalError("Agent结构化输出解析失败: " + exception.getOriginalMessage());
         }
+    }
+
+    private boolean looksLikeAiServiceFailure(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+
+        String normalized = text.toLowerCase();
+        for (String keyword : AI_UNAVAILABLE_KEYWORDS) {
+            if (normalized.contains(keyword)) {
+                return true;
+            }
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(text);
+            String topLevelMessage = firstNonBlank(
+                    textValue(root, "message"),
+                    textValue(root, "msg"),
+                    textValue(root, "error_msg")
+            );
+            String nestedErrorMessage = "";
+            JsonNode errorNode = root.path("error");
+            if (!errorNode.isMissingNode() && !errorNode.isNull()) {
+                nestedErrorMessage = firstNonBlank(
+                        textValue(errorNode, "message"),
+                        textValue(errorNode, "msg"),
+                        errorNode.isTextual() ? errorNode.asText("") : ""
+                );
+            }
+            String mergedMessage = firstNonBlank(topLevelMessage, nestedErrorMessage);
+            if (!mergedMessage.isBlank()) {
+                String mergedLower = mergedMessage.toLowerCase();
+                for (String keyword : AI_UNAVAILABLE_KEYWORDS) {
+                    if (mergedLower.contains(keyword)) {
+                        return true;
+                    }
+                }
+            }
+
+            String codeText = firstNonBlank(
+                    textValue(root, "code"),
+                    textValue(root, "status"),
+                    textValue(root, "error_code")
+            );
+            if ("402".equals(codeText) || "429".equals(codeText) || "503".equals(codeText)) {
+                return true;
+            }
+            return root.hasNonNull("error")
+                    && !mergedMessage.isBlank();
+        } catch (Exception ignore) {
+            return false;
+        }
+    }
+
+    private String textValue(JsonNode node, String fieldName) {
+        if (node == null || fieldName == null || fieldName.isBlank()) {
+            return "";
+        }
+        JsonNode value = node.path(fieldName);
+        if (value.isMissingNode() || value.isNull()) {
+            return "";
+        }
+        return value.isValueNode() ? value.asText("") : value.toString();
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return "";
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return "";
     }
 
     private String abbreviate(String text) {
@@ -351,6 +463,21 @@ public class ReactAgentRouter {
             }
         }
 
+        if (containsAny(combined, "历史记录", "历史", "记录", "复盘")) {
+            if (containsAny(combined, "简历", "简历评测")) {
+                addActionIfAvailable(inferred, availableActions, "view_resume_history");
+            }
+            if (containsAny(combined, "试题", "笔试", "作答")) {
+                addActionIfAvailable(inferred, availableActions, "view_questions_history");
+            }
+            if (containsAny(combined, "场景", "语音", "口语")) {
+                addActionIfAvailable(inferred, availableActions, "view_audio_history");
+            }
+            if (!inferred.isEmpty()) {
+                return inferred;
+            }
+        }
+
         if ((containsAny(combined, "简历", "上传简历") || containsAny(combined, "专项测评", "综合测评"))
                 && evaluationMode.isBlank()) {
             addActionIfAvailable(inferred, availableActions, "choose_special");
@@ -463,6 +590,9 @@ public class ReactAgentRouter {
             case "go_questions" -> "去做试题作答";
             case "go_audio" -> "去做场景评测";
             case "go_report" -> "查看综合报告";
+            case "view_resume_history" -> "查看简历测评历史记录";
+            case "view_questions_history" -> "查看试题作答历史记录";
+            case "view_audio_history" -> "查看场景评测历史记录";
             default -> type;
         };
     }
@@ -729,9 +859,9 @@ public class ReactAgentRouter {
 
     private String targetModuleForAction(String actionType) {
         return switch (actionType == null ? "" : actionType.trim()) {
-            case "upload_resume_special", "upload_resume_comprehensive", "go_resume" -> "resume";
-            case "go_questions" -> "questions";
-            case "go_audio" -> "audio";
+            case "upload_resume_special", "upload_resume_comprehensive", "go_resume", "view_resume_history" -> "resume";
+            case "go_questions", "view_questions_history" -> "questions";
+            case "go_audio", "view_audio_history" -> "audio";
             case "go_report" -> "report";
             default -> "NONE";
         };
