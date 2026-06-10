@@ -1,6 +1,7 @@
 package com.multimodal.interview.controller;
 
 import com.multimodal.interview.common.result.ApiResponse;
+import com.multimodal.interview.common.security.RsaPasswordCryptoService;
 import com.multimodal.interview.dto.*;
 import com.multimodal.interview.entity.User;
 import com.multimodal.interview.service.UserService;
@@ -24,9 +25,12 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final RsaPasswordCryptoService rsaPasswordCryptoService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService,
+                          RsaPasswordCryptoService rsaPasswordCryptoService) {
         this.userService = userService;
+        this.rsaPasswordCryptoService = rsaPasswordCryptoService;
     }
     /**
      * 获取用户资料。
@@ -140,6 +144,7 @@ public class UserController {
     @Operation(summary = "用户密码更新")
     @PutMapping("/password")
     public ApiResponse<Void> updatePassword(@Valid @RequestBody PasswordUpdateRequest request, Authentication authentication){
+        rsaPasswordCryptoService.decrypt(request);
         String username = authentication.getName();
         userService.updatePassword(username, request.getOldPassword(), request.getNewPassword());
         return ApiResponse.success("密码修改成功", null);

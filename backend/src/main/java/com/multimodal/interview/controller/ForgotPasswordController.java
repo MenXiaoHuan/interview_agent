@@ -1,6 +1,7 @@
 package com.multimodal.interview.controller;
 
 import com.multimodal.interview.common.result.ApiResponse;
+import com.multimodal.interview.common.security.RsaPasswordCryptoService;
 import com.multimodal.interview.dto.ForgotResetRequest;
 import com.multimodal.interview.dto.ForgotSendCodeRequest;
 import com.multimodal.interview.dto.ResetCodeResponse;
@@ -18,9 +19,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth/forgot")
 public class ForgotPasswordController {
     private final ForgotPasswordService forgotPasswordService;
+    private final RsaPasswordCryptoService rsaPasswordCryptoService;
 
-    public ForgotPasswordController(ForgotPasswordService forgotPasswordService) {
+    public ForgotPasswordController(ForgotPasswordService forgotPasswordService,
+                                    RsaPasswordCryptoService rsaPasswordCryptoService) {
         this.forgotPasswordService = forgotPasswordService;
+        this.rsaPasswordCryptoService = rsaPasswordCryptoService;
     }
     /**
      * 发送重置验证码。
@@ -43,6 +47,7 @@ public class ForgotPasswordController {
     @Operation(summary = "校验验证码并重置密码")
     @PostMapping("/reset")
     public ApiResponse<Void> reset(@Valid @RequestBody ForgotResetRequest request){
+        rsaPasswordCryptoService.decrypt(request);
         forgotPasswordService.reset(request);
         return ApiResponse.success("密码重置成功", null);
     }

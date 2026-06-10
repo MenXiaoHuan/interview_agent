@@ -54,6 +54,7 @@ public class AuthController {
             description = "用户注册相关业务")
     @PostMapping("/register")
     public ApiResponse<Map<String, Object>> register(@Valid @RequestBody RegisterRequest request){
+        rsaPasswordCryptoService.decrypt(request);
         User user = authService.register(request);
         String token = authService.generateToken(user);
 
@@ -74,6 +75,7 @@ public class AuthController {
             description = "用户登录相关业务")
     @PostMapping("/login")
     public ApiResponse<Map<String, Object>> login(@Valid @RequestBody LoginRequest request){
+        rsaPasswordCryptoService.decrypt(request);
         User user = authService.login(request);
         String token = authService.generateToken(user);
 
