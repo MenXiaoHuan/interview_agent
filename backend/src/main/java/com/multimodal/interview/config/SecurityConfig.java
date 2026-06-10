@@ -63,8 +63,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot/**").permitAll()
-                        .requestMatchers("/graphql").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot/**", "/api/auth/rsa-public-key").permitAll()
                         .requestMatchers("/avatar/**").permitAll()
                         .requestMatchers("/api/job-categories/**").permitAll()
                         .requestMatchers("/api/jobs/**", "/jobs/**").permitAll()

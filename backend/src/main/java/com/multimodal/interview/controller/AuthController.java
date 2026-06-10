@@ -1,6 +1,7 @@
 package com.multimodal.interview.controller;
 
 import com.multimodal.interview.common.result.ApiResponse;
+import com.multimodal.interview.common.security.RsaPasswordCryptoService;
 import com.multimodal.interview.dto.LoginRequest;
 import com.multimodal.interview.dto.RegisterRequest;
 import com.multimodal.interview.entity.User;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,9 +26,23 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final RsaPasswordCryptoService rsaPasswordCryptoService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, RsaPasswordCryptoService rsaPasswordCryptoService) {
         this.authService = authService;
+        this.rsaPasswordCryptoService = rsaPasswordCryptoService;
+    }
+
+    /**
+     * 获取 RSA 公钥。
+     *
+     * @return 统一响应体
+     */
+    @Operation(summary = "获取 RSA 公钥",
+            description = "前端在登录、注册、重置密码前获取 RSA 公钥")
+    @GetMapping("/rsa-public-key")
+    public ApiResponse<String> getRsaPublicKey() {
+        return ApiResponse.success(rsaPasswordCryptoService.getPublicKeyPem());
     }
     /**
      * 用户注册。
