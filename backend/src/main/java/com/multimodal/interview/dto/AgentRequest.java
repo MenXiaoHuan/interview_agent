@@ -29,15 +29,4 @@ public class AgentRequest {
      */
     private String chatId;
 
-    /**
-     * 系统提示词（legacy 兼容字段）。
-     *
-     * <p>当 agentKey 为空时，后端将使用该字段与 userContent 直接调用模型，保持对旧调用方的兼容。</p>
-     */
-    private String systemContent;
-
-    /**
-     * 用户提示词（legacy 兼容字段）。
-     */
-    private String userContent;
 }

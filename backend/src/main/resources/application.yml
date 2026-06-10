@@ -65,13 +65,6 @@ xunfei:
     upload-url: "${PLATFORM_XUNFEI_OST_UPLOAD_URL:https://upload-ost-api.xfyun.cn/file/upload}"
     create-task-url: "${PLATFORM_XUNFEI_OST_CREATE_TASK_URL:https://ost-api.xfyun.cn/v2/ost/pro_create}"
     query-task-url: "${PLATFORM_XUNFEI_OST_QUERY_TASK_URL:https://ost-api.xfyun.cn/v2/ost/query}"
-  Ultra:
-    host-url: "${PLATFORM_XUNFEI_ULTRA_HOST_URL:https://spark-api-open.xf-yun.com/v1/chat/completions}"
-    authorization: "${PLATFORM_XUNFEI_ULTRA_AUTHORIZATION:Bearer cgeuBwYpiXPURJJwLWRB:hpRgItqmvznWdGmNwtsi}"
-  tupapi:
-    host-url: "${PLATFORM_XUNFEI_TUPAPI_HOST_URL:http://tupapi.xfyun.cn/v1/expression}"
-    appid: ${PLATFORM_XUNFEI_TUPAPI_APPID:d41f8f2c}
-
 logging:
   level:
     "[com.multimodal.interview]": ${PLATFORM_LOG_LEVEL:DEBUG}

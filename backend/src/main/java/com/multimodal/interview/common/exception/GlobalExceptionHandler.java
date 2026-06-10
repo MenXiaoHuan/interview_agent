@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理器。
@@ -59,6 +60,19 @@ public class GlobalExceptionHandler {
         String message = e.getConstraintViolations().iterator().next().getMessage();
         log.error("约束验证异常: {}", message, e);
         return ApiResponse.badRequest(message);
+    }
+
+    /**
+     * 处理未找到资源异常。
+     *
+     * @param e 资源异常对象
+     * @return 统一响应体
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<?> handleNoResourceFoundException(NoResourceFoundException e) {
+        log.warn("资源不存在: {}", e.getMessage());
+        return ApiResponse.notFound("请求资源不存在");
     }
 
     /**

@@ -6,7 +6,6 @@ import com.multimodal.interview.common.exception.BusinessException;
 import com.multimodal.interview.common.result.ApiResponse;
 import com.multimodal.interview.common.result.ResultCode;
 import com.multimodal.interview.dto.AgentRequest;
-import com.multimodal.interview.service.XunfeiUltraAgentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
@@ -39,35 +38,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class AgentController {
     @Autowired
     private ReactAgentRouter reactAgentRouter;
-
-    @Autowired
-    private XunfeiUltraAgentService xunfeiUltraAgentService;
     /**
      * 获取 AI 能力返回结果。
      *
-     * <p>调用路径分为两类：</p>
-     * <p>
-     * - 新路径：携带 {@code agentKey}，进入 {@link ReactAgentRouter}，按业务能力路由到指定 Agent
-     * </p>
-     * <p>
-     * - 旧路径：不携带 {@code agentKey}，直接走旧的讯飞 prompt 调用服务
-     * </p>
+     * <p>调用必须携带 {@code agentKey}，后端将进入 {@link ReactAgentRouter} 按业务能力路由到指定 Agent。</p>
      *
      * @param request AI 调用请求体
-     * @return 统一响应体；新路径通常返回对象化结构，旧路径通常返回字符串
+     * @return 统一响应体
      */
-    @Operation(summary = "获取 AI/Agent 回答", description = "优先走 agentKey 对应的 ReactAgent；未传 agentKey 时兼容旧的讯飞 prompt 调用方式")
+    @Operation(summary = "获取 AI/Agent 回答", description = "必须传入 agentKey，由后端路由到对应 ReactAgent")
     @PostMapping("/getAgentAnswer")
     public ApiResponse<Object> getAgentAnswer(@RequestBody AgentRequest request){
+        if (request.getAgentKey() == null || request.getAgentKey().isBlank()) {
+            return ApiResponse.badRequest("agentKey不能为空");
+        }
         try {
-            Object answer;
-            if (request.getAgentKey() != null && !request.getAgentKey().isBlank()) {
-                // 新路径：真正的 Spring AI Alibaba ReactAgent
-                answer = reactAgentRouter.run(request.getAgentKey(), request.getParams(), request.getChatId());
-            } else {
-                // 旧路径兼容：直接转发 system/user prompt 到原讯飞实现
-                answer = xunfeiUltraAgentService.getAgentAnswer(request.getSystemContent(), request.getUserContent());
-            }
+            Object answer = reactAgentRouter.run(request.getAgentKey(), request.getParams(), request.getChatId());
             return ApiResponse.success("获取答案成功", answer);
         } catch (BusinessException e) {
             log.warn("Agent调用业务异常, agentKey={}, chatId={}, code={}, message={}",
