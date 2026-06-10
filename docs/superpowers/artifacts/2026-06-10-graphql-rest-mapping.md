@@ -13,7 +13,7 @@
 
 | Method | Frontend URL | GraphQL Operation | Backend REST Target | Gap | Status |
 | --- | --- | --- | --- | --- | --- |
-| GET | `/api/auth/rsa-public-key` | `rsaPublicKey` | `AuthController#getRsaPublicKey` | 需要新增独立 REST 公钥接口 | create |
+| GET | `/api/auth/rsa-public-key` | `rsaPublicKey` | `AuthController#getRsaPublicKey` | 已新增独立 REST 公钥接口 | done |
 | POST | `/api/auth/login` | `login` | `AuthController#login` | 无 | done |
 | POST | `/api/auth/register` | `register` | `AuthController#register` | 无 | done |
 | POST | `/api/auth/forgot/send-code` | `sendResetCode` | `ForgotPasswordController#sendCode` | 无 | done |
@@ -141,11 +141,10 @@
 
 ## 额外说明
 
-### 当前最关键缺口
+### 当前剩余观察项
 
-1. `rsaPublicKey` 目前只在 GraphQL 暴露，需要补 `GET /api/auth/rsa-public-key`
-2. 前端请求层当前并不直连 REST，而是经由 `graphql-bridge.js` 转发，需要整体切掉桥接逻辑
-3. `AudioTranscriptionController` 当前返回原始字符串 `ResponseEntity<String>`，与大部分 `ApiResponse` 风格不一致，迁移时需要统一
+1. `AudioTranscriptionController` 当前返回原始字符串 `ResponseEntity<String>`，但前端请求层已兼容包装；如后续希望接口完全统一，可再收敛为 `ApiResponse`
+2. `POST` 风格的历史删除/更新接口目前仍保留，为保证页面最小改动未在本次迁移中统一改成更严格的 REST 语义
 
 ### 当前可直接复用的 REST 资源
 
@@ -164,3 +163,14 @@
 - 浏览器网络中 `/graphql` 请求归零
 - 后端安全配置移除 `/graphql` 放行
 - Maven 依赖和 `schema.graphqls` 已删除
+
+## 本次执行结果
+
+- 已新增 `GET /api/auth/rsa-public-key`
+- 已移除前端 `graphql-bridge.js`，并通过 `npm run build:h5`
+- 已删除后端 GraphQL 依赖、配置、schema 与运行时代码
+- 已通过 `./mvnw test`
+- 已通过 `./mvnw -q -DskipTests package`
+- 已通过 `PLATFORM_SERVER_PORT=18442 ./mvnw spring-boot:run` 启动验证
+- 已通过 `curl -k https://localhost:18442/api/auth/rsa-public-key`
+- 当前源码中仅测试文件仍保留 `/graphql` 字面量，用于验证匿名访问被拒绝
