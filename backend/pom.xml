@@ -76,12 +76,6 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- Spring GraphQL：提供 GraphQL 查询、变更与 Schema 运行时能力 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-graphql</artifactId>
-        </dependency>
-
         <!-- 参数校验：@NotNull @Valid 等校验注解 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -132,20 +126,6 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
-        </dependency>
-
-        <!-- GraphQL 扩展标量：DateTime、JSON 等自定义标量支持 -->
-        <dependency>
-            <groupId>com.graphql-java</groupId>
-            <artifactId>graphql-java-extended-scalars</artifactId>
-            <version>22.0</version>
-        </dependency>
-
-        <!-- GraphQL Multipart 上传支持：对接 Upload 标量 -->
-        <dependency>
-            <groupId>name.nkonev.multipart-spring-graphql</groupId>
-            <artifactId>multipart-spring-graphql</artifactId>
-            <version>1.2.1</version>
         </dependency>
 
         <!-- MySQL 驱动：连接 MySQL 数据库 -->

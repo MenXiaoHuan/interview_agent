@@ -1,83 +1,81 @@
 # 默认环境基础配置，包含本地开发所需的数据库、上传、认证、第三方接口与 HTTPS 设置。
 spring:
   application:
-    name: interview_agent
+    name: ${SPRING_APPLICATION_NAME:interview_agent}
   web:
     resources:
-      static-locations: classpath:/static/,classpath:/public/,file:${app.file.root}/
+      static-locations: "${PLATFORM_STATIC_LOCATIONS:classpath:/static/,classpath:/public/,file:${app.file.root}/}"
   datasource:
-    url: jdbc:mysql://localhost:3306/interview_agent
-    username: root
-    password: 12345678
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: "${PLATFORM_DB_URL:jdbc:mysql://localhost:3306/interview_agent}"
+    username: ${PLATFORM_DB_USERNAME:root}
+    password: ${PLATFORM_DB_PASSWORD:12345678}
+    driver-class-name: ${PLATFORM_DB_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
   data:
     redis:
-      host: localhost
-      port: 6379
-      password:
-      database: 0
+      host: ${PLATFORM_REDIS_HOST:localhost}
+      port: ${PLATFORM_REDIS_PORT:6379}
+      password: ${PLATFORM_REDIS_PASSWORD:}
+      database: ${PLATFORM_REDIS_DATABASE:0}
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
-  graphql:
-    path: /graphql
+      max-file-size: ${PLATFORM_SERVLET_MAX_FILE_SIZE:10MB}
+      max-request-size: ${PLATFORM_SERVLET_MAX_REQUEST_SIZE:10MB}
   ai:
     deepseek:
-      api-key: sk-fa7a2c9168a34bc3b38b91c8ea66b102
-      base-url: https://api.deepseek.com
+      api-key: ${PLATFORM_DEEPSEEK_API_KEY:sk-fa7a2c9168a34bc3b38b91c8ea66b102}
+      base-url: "${PLATFORM_DEEPSEEK_BASE_URL:https://api.deepseek.com}"
       chat:
         options:
-          model: deepseek-chat
-          temperature: 0.5
+          model: ${PLATFORM_DEEPSEEK_MODEL:deepseek-chat}
+          temperature: ${PLATFORM_DEEPSEEK_TEMPERATURE:0.5}
 
 mybatis:
   configuration:
-    map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-  type-handlers-package: com.multimodal.interview.util
+    map-underscore-to-camel-case: ${PLATFORM_MYBATIS_MAP_UNDERSCORE_TO_CAMEL_CASE:true}
+    log-impl: ${PLATFORM_MYBATIS_LOG_IMPL:org.apache.ibatis.logging.stdout.StdOutImpl}
+  type-handlers-package: ${PLATFORM_MYBATIS_TYPE_HANDLERS_PACKAGE:com.multimodal.interview.util}
 
 jwt:
-  secret: xQ7$pL9@rT2!sH4%kM6*fG8&dJ0^vB3#nZ5$mY7
-  expiration: 604800000
+  secret: ${PLATFORM_JWT_SECRET:xQ7$pL9@rT2!sH4%kM6*fG8&dJ0^vB3#nZ5$mY7}
+  expiration: ${PLATFORM_JWT_EXPIRATION:604800000}
 
 server:
-  port: 8442
+  port: ${PLATFORM_SERVER_PORT:8442}
   ssl:
-    enabled: true
-    key-store: classpath:springboot-local.p12
-    key-store-password: changeit
-    key-store-type: PKCS12
-    key-alias: 1
+    enabled: ${PLATFORM_SSL_ENABLED:true}
+    key-store: "${PLATFORM_SSL_KEY_STORE:classpath:springboot-local.p12}"
+    key-store-password: ${PLATFORM_SSL_KEY_STORE_PASSWORD:changeit}
+    key-store-type: ${PLATFORM_SSL_KEY_STORE_TYPE:PKCS12}
+    key-alias: ${PLATFORM_SSL_KEY_ALIAS:1}
 
 xunfei:
-  appid: d41f8f2c
-  api-key: 91ff9402ea218f8c8cb7e92e292eb768
-  api-secret: YWRiZjdlMjkyMmM3ZWM0Y2Y3OTk1YmU5
+  appid: ${PLATFORM_XUNFEI_APPID:d41f8f2c}
+  api-key: ${PLATFORM_XUNFEI_API_KEY:91ff9402ea218f8c8cb7e92e292eb768}
+  api-secret: ${PLATFORM_XUNFEI_API_SECRET:YWRiZjdlMjkyMmM3ZWM0Y2Y3OTk1YmU5}
   tts:
-    host-url: https://tts-api.xfyun.cn/v2/tts
-    tte: UTF8
-    vcn: x4_yezi
-    pitch: 50
-    speed: 50
+    host-url: "${PLATFORM_XUNFEI_TTS_HOST_URL:https://tts-api.xfyun.cn/v2/tts}"
+    tte: ${PLATFORM_XUNFEI_TTS_TTE:UTF8}
+    vcn: ${PLATFORM_XUNFEI_TTS_VCN:x4_yezi}
+    pitch: ${PLATFORM_XUNFEI_TTS_PITCH:50}
+    speed: ${PLATFORM_XUNFEI_TTS_SPEED:50}
   ost:
-    appId: "d41f8f2c"
-    apiKey: "91ff9402ea218f8c8cb7e92e292eb768"
-    apiSecret: "YWRiZjdlMjkyMmM3ZWM0Y2Y3OTk1YmU5"
-    upload-url: "https://upload-ost-api.xfyun.cn/file/upload"
-    create-task-url: "https://ost-api.xfyun.cn/v2/ost/pro_create"
-    query-task-url: "https://ost-api.xfyun.cn/v2/ost/query"
+    appId: "${PLATFORM_XUNFEI_OST_APP_ID:d41f8f2c}"
+    apiKey: "${PLATFORM_XUNFEI_OST_API_KEY:91ff9402ea218f8c8cb7e92e292eb768}"
+    apiSecret: "${PLATFORM_XUNFEI_OST_API_SECRET:YWRiZjdlMjkyMmM3ZWM0Y2Y3OTk1YmU5}"
+    upload-url: "${PLATFORM_XUNFEI_OST_UPLOAD_URL:https://upload-ost-api.xfyun.cn/file/upload}"
+    create-task-url: "${PLATFORM_XUNFEI_OST_CREATE_TASK_URL:https://ost-api.xfyun.cn/v2/ost/pro_create}"
+    query-task-url: "${PLATFORM_XUNFEI_OST_QUERY_TASK_URL:https://ost-api.xfyun.cn/v2/ost/query}"
   Ultra:
-    host-url: https://spark-api-open.xf-yun.com/v1/chat/completions
-    authorization: Bearer cgeuBwYpiXPURJJwLWRB:hpRgItqmvznWdGmNwtsi
+    host-url: "${PLATFORM_XUNFEI_ULTRA_HOST_URL:https://spark-api-open.xf-yun.com/v1/chat/completions}"
+    authorization: "${PLATFORM_XUNFEI_ULTRA_AUTHORIZATION:Bearer cgeuBwYpiXPURJJwLWRB:hpRgItqmvznWdGmNwtsi}"
   tupapi:
-    host-url: http://tupapi.xfyun.cn/v1/expression
-    appid: d41f8f2c
+    host-url: "${PLATFORM_XUNFEI_TUPAPI_HOST_URL:http://tupapi.xfyun.cn/v1/expression}"
+    appid: ${PLATFORM_XUNFEI_TUPAPI_APPID:d41f8f2c}
 
 logging:
   level:
-    com.multimodal.interview: DEBUG
+    "[com.multimodal.interview]": ${PLATFORM_LOG_LEVEL:DEBUG}
 
 app:
   file:
-    root: /home/file
+    root: ${PLATFORM_FILE_ROOT:/home/file}
