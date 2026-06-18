@@ -1,74 +1,26 @@
-# 默认环境基础配置，包含本地开发所需的数据库、上传、认证、第三方接口与 HTTPS 设置。
 spring:
   application:
     name: ${SPRING_APPLICATION_NAME:interview_agent}
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   web:
     resources:
       static-locations: "${PLATFORM_STATIC_LOCATIONS:classpath:/static/,classpath:/public/,file:${app.file.root}/}"
-  datasource:
-    url: "${PLATFORM_DB_URL:jdbc:mysql://localhost:3306/interview_agent}"
-    username: ${PLATFORM_DB_USERNAME:root}
-    password: ${PLATFORM_DB_PASSWORD:12345678}
-    driver-class-name: ${PLATFORM_DB_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
-  data:
-    redis:
-      host: ${PLATFORM_REDIS_HOST:localhost}
-      port: ${PLATFORM_REDIS_PORT:6379}
-      password: ${PLATFORM_REDIS_PASSWORD:}
-      database: ${PLATFORM_REDIS_DATABASE:0}
-  servlet:
-    multipart:
-      max-file-size: ${PLATFORM_SERVLET_MAX_FILE_SIZE:10MB}
-      max-request-size: ${PLATFORM_SERVLET_MAX_REQUEST_SIZE:10MB}
-  ai:
-    deepseek:
-      api-key: ${PLATFORM_DEEPSEEK_API_KEY:sk-fa7a2c9168a34bc3b38b91c8ea66b102}
-      base-url: "${PLATFORM_DEEPSEEK_BASE_URL:https://api.deepseek.com}"
-      chat:
-        options:
-          model: ${PLATFORM_DEEPSEEK_MODEL:deepseek-v4-flash}
-          temperature: ${PLATFORM_DEEPSEEK_TEMPERATURE:0.5}
 
 mybatis:
   configuration:
     map-underscore-to-camel-case: ${PLATFORM_MYBATIS_MAP_UNDERSCORE_TO_CAMEL_CASE:true}
-    log-impl: ${PLATFORM_MYBATIS_LOG_IMPL:org.apache.ibatis.logging.stdout.StdOutImpl}
+    log-impl: ${PLATFORM_MYBATIS_LOG_IMPL:}
   type-handlers-package: ${PLATFORM_MYBATIS_TYPE_HANDLERS_PACKAGE:com.multimodal.interview.util}
-
-jwt:
-  secret: ${PLATFORM_JWT_SECRET:xQ7$pL9@rT2!sH4%kM6*fG8&dJ0^vB3#nZ5$mY7}
-  expiration: ${PLATFORM_JWT_EXPIRATION:604800000}
-
-server:
-  port: ${PLATFORM_SERVER_PORT:8442}
-  ssl:
-    enabled: ${PLATFORM_SSL_ENABLED:true}
-    key-store: "${PLATFORM_SSL_KEY_STORE:classpath:springboot-local.p12}"
-    key-store-password: ${PLATFORM_SSL_KEY_STORE_PASSWORD:changeit}
-    key-store-type: ${PLATFORM_SSL_KEY_STORE_TYPE:PKCS12}
-    key-alias: ${PLATFORM_SSL_KEY_ALIAS:1}
-
-xunfei:
-  appid: ${PLATFORM_XUNFEI_APPID:d41f8f2c}
-  api-key: ${PLATFORM_XUNFEI_API_KEY:91ff9402ea218f8c8cb7e92e292eb768}
-  api-secret: ${PLATFORM_XUNFEI_API_SECRET:YWRiZjdlMjkyMmM3ZWM0Y2Y3OTk1YmU5}
-  tts:
-    host-url: "${PLATFORM_XUNFEI_TTS_HOST_URL:https://tts-api.xfyun.cn/v2/tts}"
-    tte: ${PLATFORM_XUNFEI_TTS_TTE:UTF8}
-    vcn: ${PLATFORM_XUNFEI_TTS_VCN:x4_yezi}
-    pitch: ${PLATFORM_XUNFEI_TTS_PITCH:50}
-    speed: ${PLATFORM_XUNFEI_TTS_SPEED:50}
-  ost:
-    appId: "${PLATFORM_XUNFEI_OST_APP_ID:d41f8f2c}"
-    apiKey: "${PLATFORM_XUNFEI_OST_API_KEY:91ff9402ea218f8c8cb7e92e292eb768}"
-    apiSecret: "${PLATFORM_XUNFEI_OST_API_SECRET:YWRiZjdlMjkyMmM3ZWM0Y2Y3OTk1YmU5}"
-    upload-url: "${PLATFORM_XUNFEI_OST_UPLOAD_URL:https://upload-ost-api.xfyun.cn/file/upload}"
-    create-task-url: "${PLATFORM_XUNFEI_OST_CREATE_TASK_URL:https://ost-api.xfyun.cn/v2/ost/pro_create}"
-    query-task-url: "${PLATFORM_XUNFEI_OST_QUERY_TASK_URL:https://ost-api.xfyun.cn/v2/ost/query}"
-logging:
-  level:
-    "[com.multimodal.interview]": ${PLATFORM_LOG_LEVEL:DEBUG}
 
 app:
   file:
     root: ${PLATFORM_FILE_ROOT:/home/file}
+  cors:
+    allowed-origins: ${PLATFORM_CORS_ALLOWED_ORIGINS:https://localhost:5173}
+  swagger:
+    enabled: ${PLATFORM_SWAGGER_ENABLED:false}
+  rate-limit:
+    capacity: ${PLATFORM_RATE_LIMIT_CAPACITY:10}
+    refill-tokens: ${PLATFORM_RATE_LIMIT_REFILL_TOKENS:10}
+    refill-seconds: ${PLATFORM_RATE_LIMIT_REFILL_SECONDS:1}

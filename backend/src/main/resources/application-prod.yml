@@ -1,0 +1,44 @@
+spring:
+  datasource:
+    url: "${PLATFORM_DB_URL}"
+    username: ${PLATFORM_DB_USERNAME}
+    password: ${PLATFORM_DB_PASSWORD}
+    driver-class-name: ${PLATFORM_DB_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
+  data:
+    redis:
+      host: ${PLATFORM_REDIS_HOST}
+      port: ${PLATFORM_REDIS_PORT:6379}
+      password: ${PLATFORM_REDIS_PASSWORD:}
+      database: ${PLATFORM_REDIS_DATABASE:0}
+  ai:
+    deepseek:
+      api-key: ${PLATFORM_DEEPSEEK_API_KEY}
+      base-url: "${PLATFORM_DEEPSEEK_BASE_URL:https://api.deepseek.com}"
+
+jwt:
+  secret: ${PLATFORM_JWT_SECRET}
+  expiration: ${PLATFORM_JWT_EXPIRATION:604800000}
+
+server:
+  port: ${PLATFORM_SERVER_PORT:8442}
+  ssl:
+    enabled: ${PLATFORM_SSL_ENABLED:true}
+    key-store: "${PLATFORM_SSL_KEY_STORE}"
+    key-store-password: ${PLATFORM_SSL_KEY_STORE_PASSWORD}
+    key-store-type: ${PLATFORM_SSL_KEY_STORE_TYPE:PKCS12}
+    key-alias: ${PLATFORM_SSL_KEY_ALIAS}
+
+xunfei:
+  appid: ${PLATFORM_XUNFEI_APPID}
+  api-key: ${PLATFORM_XUNFEI_API_KEY}
+  api-secret: ${PLATFORM_XUNFEI_API_SECRET}
+
+app:
+  cors:
+    allowed-origins: ${PLATFORM_CORS_ALLOWED_ORIGINS}
+  swagger:
+    enabled: ${PLATFORM_SWAGGER_ENABLED:false}
+
+logging:
+  level:
+    "[com.multimodal.interview]": ${PLATFORM_LOG_LEVEL:INFO}

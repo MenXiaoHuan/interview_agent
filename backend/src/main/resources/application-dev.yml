@@ -1,0 +1,63 @@
+spring:
+  datasource:
+    url: "${PLATFORM_DB_URL:jdbc:mysql://localhost:3306/interview_agent}"
+    username: ${PLATFORM_DB_USERNAME:root}
+    password: ${PLATFORM_DB_PASSWORD:}
+    driver-class-name: ${PLATFORM_DB_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
+  data:
+    redis:
+      host: ${PLATFORM_REDIS_HOST:localhost}
+      port: ${PLATFORM_REDIS_PORT:6379}
+      password: ${PLATFORM_REDIS_PASSWORD:}
+      database: ${PLATFORM_REDIS_DATABASE:0}
+  servlet:
+    multipart:
+      max-file-size: ${PLATFORM_SERVLET_MAX_FILE_SIZE:10MB}
+      max-request-size: ${PLATFORM_SERVLET_MAX_REQUEST_SIZE:10MB}
+  ai:
+    deepseek:
+      api-key: ${PLATFORM_DEEPSEEK_API_KEY:}
+      base-url: "${PLATFORM_DEEPSEEK_BASE_URL:https://api.deepseek.com}"
+      chat:
+        options:
+          model: ${PLATFORM_DEEPSEEK_MODEL:deepseek-v4-flash}
+          temperature: ${PLATFORM_DEEPSEEK_TEMPERATURE:0.5}
+
+jwt:
+  secret: ${PLATFORM_JWT_SECRET:dev-only-change-me-please-use-at-least-32-bytes}
+  expiration: ${PLATFORM_JWT_EXPIRATION:604800000}
+
+server:
+  port: ${PLATFORM_SERVER_PORT:8442}
+  ssl:
+    enabled: ${PLATFORM_SSL_ENABLED:true}
+    key-store: "${PLATFORM_SSL_KEY_STORE:classpath:springboot-local.p12}"
+    key-store-password: ${PLATFORM_SSL_KEY_STORE_PASSWORD:changeit}
+    key-store-type: ${PLATFORM_SSL_KEY_STORE_TYPE:PKCS12}
+    key-alias: ${PLATFORM_SSL_KEY_ALIAS:1}
+
+xunfei:
+  appid: ${PLATFORM_XUNFEI_APPID:}
+  api-key: ${PLATFORM_XUNFEI_API_KEY:}
+  api-secret: ${PLATFORM_XUNFEI_API_SECRET:}
+  tts:
+    host-url: "${PLATFORM_XUNFEI_TTS_HOST_URL:https://tts-api.xfyun.cn/v2/tts}"
+    tte: ${PLATFORM_XUNFEI_TTS_TTE:UTF8}
+    vcn: ${PLATFORM_XUNFEI_TTS_VCN:x4_yezi}
+    pitch: ${PLATFORM_XUNFEI_TTS_PITCH:50}
+    speed: ${PLATFORM_XUNFEI_TTS_SPEED:50}
+  ost:
+    appId: "${PLATFORM_XUNFEI_OST_APP_ID:}"
+    apiKey: "${PLATFORM_XUNFEI_OST_API_KEY:}"
+    apiSecret: "${PLATFORM_XUNFEI_OST_API_SECRET:}"
+    upload-url: "${PLATFORM_XUNFEI_OST_UPLOAD_URL:https://upload-ost-api.xfyun.cn/file/upload}"
+    create-task-url: "${PLATFORM_XUNFEI_OST_CREATE_TASK_URL:https://ost-api.xfyun.cn/v2/ost/pro_create}"
+    query-task-url: "${PLATFORM_XUNFEI_OST_QUERY_TASK_URL:https://ost-api.xfyun.cn/v2/ost/query}"
+
+app:
+  swagger:
+    enabled: ${PLATFORM_SWAGGER_ENABLED:true}
+
+logging:
+  level:
+    "[com.multimodal.interview]": ${PLATFORM_LOG_LEVEL:DEBUG}
