@@ -30,9 +30,35 @@ docker compose up
 
 The backend listens on `http://localhost:8442` when `PLATFORM_SSL_ENABLED=false`.
 
+## MinIO Avatar Storage
+
+Local Docker Compose starts MinIO:
+
+- API: `http://localhost:9000`
+- Console: `http://localhost:9001`
+- Default development user: `minioadmin`
+- Default development password: `minioadmin`
+- Default bucket: `interview-agent`
+
+Production must provide:
+
+- `PLATFORM_MINIO_ENDPOINT`
+- `PLATFORM_MINIO_PUBLIC_URL`
+- `PLATFORM_MINIO_ACCESS_KEY`
+- `PLATFORM_MINIO_SECRET_KEY`
+- `PLATFORM_MINIO_BUCKET`
+
+Avatar URLs are stored as public MinIO URLs in `user.avatar_url`.
+
 ## Frontend API URL
 
 Set `VITE_API_BASE_URL` in the frontend environment file. Local development uses `https://localhost:8442` by default.
+
+## Frontend in Docker Compose
+
+The `frontend` service injects `VITE_API_BASE_URL=http://localhost:8442`.
+This only applies when the frontend is started by Docker Compose.
+When running `npm run dev:h5` directly, `project/.env.development` keeps the local HTTPS default.
 
 ## Swagger
 

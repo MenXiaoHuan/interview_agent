@@ -359,7 +359,7 @@ curl -k -X POST https://localhost:8442/api/resume/extract \
 6. 启动前端
 7. 浏览器信任本地 HTTPS 证书
 
-也可以使用 Docker Compose 启动 MySQL、Redis 与后端：
+也可以使用 Docker Compose 启动 MySQL、Redis、MinIO、后端与前端。MinIO 用于存储上传头像，前端服务会通过 Compose 注入 `VITE_API_BASE_URL`：
 
 ```bash
 docker compose up
