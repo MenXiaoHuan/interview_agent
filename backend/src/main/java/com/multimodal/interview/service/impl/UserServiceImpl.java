@@ -4,17 +4,13 @@ import com.multimodal.interview.dto.UserSettingsResponse;
 import com.multimodal.interview.entity.User;
 import com.multimodal.interview.common.exception.BusinessException;
 import com.multimodal.interview.mapper.UserMapper;
+import com.multimodal.interview.service.StorageService;
 import com.multimodal.interview.service.UserService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 
 /**
@@ -26,18 +22,18 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final SensitiveWordServiceImpl sensitiveWordServiceImpl;
     private final PasswordEncoder passwordEncoder;
-    private final String fileRoot;
+    private final StorageService storageService;
 
     public UserServiceImpl(
             UserMapper userMapper,
             SensitiveWordServiceImpl sensitiveWordServiceImpl,
             PasswordEncoder passwordEncoder,
-            @Value("${app.file.root:/home/file}") String fileRoot
+            StorageService storageService
     ) {
         this.userMapper = userMapper;
         this.sensitiveWordServiceImpl = sensitiveWordServiceImpl;
         this.passwordEncoder = passwordEncoder;
-        this.fileRoot = fileRoot;
+        this.storageService = storageService;
     }
 
     /**
@@ -117,46 +113,12 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public String uploadAvatar(String username, MultipartFile file, String baseUrl) {
+    public String uploadAvatar(String username, MultipartFile file) {
         User user = userMapper.findByUsername(username);
         if (user == null) {
             throw BusinessException.notFound("用户不存在");
         }
-        if (file == null || file.isEmpty()) {
-            throw BusinessException.badRequest("头像文件不能为空");
-        }
-        if (file.getSize() > 5L * 1024 * 1024) {
-            throw BusinessException.badRequest("头像文件过大（最大 5MB）");
-        }
-
-        String contentType = String.valueOf(file.getContentType());
-        String ext;
-        if (contentType.contains("png")) {
-            ext = ".png";
-        } else if (contentType.contains("jpeg") || contentType.contains("jpg")) {
-            ext = ".jpg";
-        } else if (contentType.contains("webp")) {
-            ext = ".webp";
-        } else {
-            throw BusinessException.badRequest("不支持的头像格式，仅支持 png/jpg/webp");
-        }
-
-        Path avatarDir = Paths.get(fileRoot, "avatar");
-        try {
-            Files.createDirectories(avatarDir);
-        } catch (IOException e) {
-            throw BusinessException.internalError("创建头像目录失败");
-        }
-
-        String filename = "user" + user.getId() + "_" + System.currentTimeMillis() + ext;
-        Path target = avatarDir.resolve(filename);
-        try {
-            file.transferTo(target);
-        } catch (IOException e) {
-            throw BusinessException.internalError("保存头像文件失败");
-        }
-
-        String avatarUrl = baseUrl + "/avatar/" + filename;
+        String avatarUrl = storageService.uploadAvatar(user.getId(), file);
         int rows = userMapper.updateAvatar(user.getId(), avatarUrl);
         if (rows != 1) {
             throw BusinessException.internalError("更新头像失败");

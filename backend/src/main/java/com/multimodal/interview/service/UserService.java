@@ -35,10 +35,9 @@ public interface UserService {
      *
      * @param username 当前用户名
      * @param file 头像文件
-     * @param baseUrl 当前请求的 baseUrl（scheme://host:port）
      * @return 可访问的头像 URL
      */
-    String uploadAvatar(String username, MultipartFile file, String baseUrl);
+    String uploadAvatar(String username, MultipartFile file);
 
     /**
      * 更新用户密码

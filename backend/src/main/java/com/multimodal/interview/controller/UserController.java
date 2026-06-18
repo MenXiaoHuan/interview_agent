@@ -11,7 +11,6 @@ import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.HashMap;
 import java.util.List;
@@ -121,15 +120,14 @@ public class UserController {
      * @param authentication 当前登录用户认证信息
      * @return 返回可访问的头像 URL
      */
-    @Operation(summary = "上传头像文件并更新用户头像", description = "上传图片文件，服务端保存到本地磁盘并返回可访问 URL（/avatar/**）")
+    @Operation(summary = "上传头像文件并更新用户头像", description = "上传图片文件到对象存储并返回可访问 URL")
     @PostMapping(value = "/avatar/upload", consumes = "multipart/form-data")
     public ApiResponse<Map<String, Object>> uploadAvatarFile(
             @RequestPart("file") MultipartFile file,
             Authentication authentication
     ) {
         String username = authentication.getName();
-        String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
-        String avatarUrl = userService.uploadAvatar(username, file, baseUrl);
+        String avatarUrl = userService.uploadAvatar(username, file);
         Map<String, Object> resp = new HashMap<>();
         resp.put("avatarUrl", avatarUrl);
         return ApiResponse.success("头像更新成功", resp);
