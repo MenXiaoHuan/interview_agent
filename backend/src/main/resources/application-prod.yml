@@ -38,6 +38,13 @@ app:
     allowed-origins: ${PLATFORM_CORS_ALLOWED_ORIGINS}
   swagger:
     enabled: ${PLATFORM_SWAGGER_ENABLED:false}
+  storage:
+    minio:
+      endpoint: ${PLATFORM_MINIO_ENDPOINT}
+      public-url: ${PLATFORM_MINIO_PUBLIC_URL}
+      access-key: ${PLATFORM_MINIO_ACCESS_KEY}
+      secret-key: ${PLATFORM_MINIO_SECRET_KEY}
+      bucket: ${PLATFORM_MINIO_BUCKET}
 
 logging:
   level:

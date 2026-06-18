@@ -31,6 +31,13 @@ app:
     allowed-origins: ${PLATFORM_CORS_ALLOWED_ORIGINS:http://localhost:5173}
   swagger:
     enabled: true
+  storage:
+    minio:
+      endpoint: ${PLATFORM_MINIO_ENDPOINT:http://localhost:9000}
+      public-url: ${PLATFORM_MINIO_PUBLIC_URL:http://localhost:9000}
+      access-key: ${PLATFORM_MINIO_ACCESS_KEY:minioadmin}
+      secret-key: ${PLATFORM_MINIO_SECRET_KEY:minioadmin}
+      bucket: ${PLATFORM_MINIO_BUCKET:interview-agent}
 
 xunfei:
   appid: ${PLATFORM_XUNFEI_APPID:test-only-xunfei-appid}

@@ -224,6 +224,13 @@
             <version>4.12.0</version>
         </dependency>
 
+        <!-- MinIO：对象存储客户端，用于头像等文件上传 -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.5.17</version>
+        </dependency>
+
         <!-- Java-WebSocket：轻量级 WebSocket 客户端/服务端 -->
         <dependency>
             <groupId>org.java-websocket</groupId>
