@@ -13,8 +13,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -215,52 +213,5 @@ public class JobController {
             @PathVariable Long jobId){
         jobService.deleteJob(jobId);
         return ApiResponse.success("删除岗位成功", null);
-    }
-
-    // ==================== Agent Tools（供 ReactAgent 调用） ====================
-    @Tool(
-            name = "job_get_category_tree",
-            description = "获取岗位分类树（一级/二级分类），按层级与排序返回，用于给面试/出题提供候选岗位范围"
-    )
-    public List<JobCategory> toolGetCategoryTree() {
-        return jobService.getCategoryTree();
-    }
-
-    @Tool(
-            name = "job_get_jobs_by_category",
-            description = "根据二级岗位分类ID获取该分类下的岗位列表（启用的岗位）"
-    )
-    public List<Job> toolGetJobsByCategory(
-            @ToolParam(description = "二级岗位分类ID") Long categoryId
-    ) {
-        return jobService.getJobsByCategory(categoryId);
-    }
-
-    @Tool(
-            name = "job_get_detail",
-            description = "根据岗位ID获取岗位详情（含岗位描述/所属分类等），用于生成面试题与评测维度"
-    )
-    public Job toolGetJobDetail(
-            @ToolParam(description = "岗位ID") Long jobId
-    ) {
-        return jobService.getJobDetail(jobId);
-    }
-
-    @Tool(
-            name = "job_get_all_jobs",
-            description = "获取所有启用的岗位列表（含分类信息），用于让 Agent 自主选择/推荐岗位"
-    )
-    public List<Job> toolGetAllJobs() {
-        return jobService.getAllJobsWithCategory();
-    }
-
-    @Tool(
-            name = "job_get_category_name",
-            description = "根据二级岗位分类ID查询岗位分类名称"
-    )
-    public String toolGetCategoryNameById(
-            @ToolParam(description = "二级岗位分类ID") Long categoryId
-    ) {
-        return jobService.getCategoryNameById(categoryId);
     }
 } 
