@@ -1,0 +1,40 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: interview_agent
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-interview_agent_dev}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./backend/src/main/resources/sql/interview_agent.sql:/docker-entrypoint-initdb.d/01-interview-agent.sql:ro
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  backend:
+    image: eclipse-temurin:17
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    command: ./mvnw spring-boot:run
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      PLATFORM_DB_URL: jdbc:mysql://mysql:3306/interview_agent
+      PLATFORM_DB_USERNAME: root
+      PLATFORM_DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-interview_agent_dev}
+      PLATFORM_REDIS_HOST: redis
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:-dev-only-change-me-please-use-at-least-32-bytes}
+      PLATFORM_SSL_ENABLED: "false"
+      PLATFORM_CORS_ALLOWED_ORIGINS: http://localhost:5173
+    ports:
+      - "8442:8442"
+    depends_on:
+      - mysql
+      - redis
+
+volumes:
+  mysql-data:

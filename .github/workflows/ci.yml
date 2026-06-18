@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Backend tests
+        working-directory: backend
+        run: ./mvnw test
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: project/package-lock.json
+      - name: Install
+        working-directory: project
+        run: npm ci
+      - name: Lint
+        working-directory: project
+        run: npm run lint
+      - name: Test
+        working-directory: project
+        run: npm test
+      - name: Build
+        working-directory: project
+        run: npm run build:h5
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan obvious committed secrets
+        run: |
+          ! grep -R "sk-[a-zA-Z0-9]\{20,\}\|PLATFORM_JWT_SECRET:.*[!@#$]" . --exclude-dir=.git --exclude-dir=node_modules

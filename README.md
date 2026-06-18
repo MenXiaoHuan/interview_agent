@@ -174,7 +174,7 @@ interview_agent/
 │   │   ├── util/                # 文件、图片、JSON 等工具类
 │   │   └── InterviewAgentApplication.java
 │   └── src/main/resources/
-│       ├── application.yml      # 默认本地配置
+│       ├── application*.yml     # 分环境配置
 │       ├── sql/                 # 数据库初始化脚本
 │       └── skills/              # 内置 Agent Skills
 ├── project/
@@ -223,10 +223,13 @@ interview_agent
 
 ### 3. 检查后端配置
 
-默认配置文件：
+共享配置与分环境配置文件：
 
 ```text
 backend/src/main/resources/application.yml
+backend/src/main/resources/application-dev.yml
+backend/src/main/resources/application-test.yml
+backend/src/main/resources/application-prod.yml
 ```
 
 当前默认关键项如下：
@@ -236,7 +239,7 @@ backend/src/main/resources/application.yml
 - 后端端口：`8442`
 - SSL：默认开启，证书 `classpath:springboot-local.p12`
 - 文件目录：`/home/file`
-- AI：DeepSeek 与讯飞相关配置已在配置文件中预留
+- AI：DeepSeek 与讯飞相关配置通过环境变量注入
 
 推荐优先通过环境变量覆盖这些配置，而不是直接提交敏感值。
 
@@ -267,22 +270,9 @@ npm run dev:h5
 
 ### 6. 联调前务必检查端口
 
-当前代码里存在一个需要注意的现状：
-
-- 后端默认端口：`8442`（`backend/src/main/resources/application.yml`）
-- 前端默认接口地址：`https://localhost:8842`（`project/src/utils/api-config.js`）
-
-也就是说，直接按默认值启动后，前端和后端端口并不一致。联调前请二选一：
-
-1. 把前端 `project/src/utils/api-config.js` 改成：
-
-```js
-export const BASE_URL = 'https://localhost:8442'
-```
-
-2. 或者把后端端口改成 `8842`
-
-否则前端请求会直接打到错误端口。
+- 后端开发默认端口：`8442`
+- 前端开发默认接口地址：`https://localhost:8442`
+- 如需连接其他后端地址，请在前端环境文件中设置 `VITE_API_BASE_URL`
 
 ### 7. HTTPS 说明
 
@@ -357,17 +347,23 @@ curl -k -X POST https://localhost:8442/api/resume/extract \
 
 ## 部署说明
 
-当前仓库尚未提供 Docker / Docker Compose，一般按手动部署方式运行。
+完整环境变量、Docker Compose、Swagger 与 CORS 部署说明见 [`docs/deployment.md`](./docs/deployment.md)。
 
 ### 本地开发部署
 
 1. 准备 MySQL、Redis
 2. 初始化数据库脚本
 3. 配置后端 `application.yml` 或环境变量
-4. 确认前端 `BASE_URL` 与后端端口一致
+4. 确认前端 `VITE_API_BASE_URL` 与后端端口一致
 5. 启动后端
 6. 启动前端
 7. 浏览器信任本地 HTTPS 证书
+
+也可以使用 Docker Compose 启动 MySQL、Redis 与后端：
+
+```bash
+docker compose up
+```
 
 ### 服务器部署建议
 
@@ -407,7 +403,7 @@ npm run build:h5
 
 ## 开发注意事项
 
-- 当前前后端端口默认值不一致，联调前必须先统一
+- 前端开发默认使用 `https://localhost:8442` 作为后端接口地址
 - 后端很多接口需要 JWT，未认证会返回 `401`
 - 登录、注册、重置密码依赖前端 RSA 加密流程
 - 若后端无法启动，优先检查端口、数据库、Redis、SSL 证书和第三方 AI 配置
@@ -416,10 +412,7 @@ npm run build:h5
 
 ## 后续可完善项
 
-- 增加 `.env` / 多环境配置方案
-- 增加 Docker / Docker Compose 部署
 - 补充正式环境 Nginx 配置模板
-- 增加自动化测试与 CI/CD
 - 增加更完整的接口文档和业务演示视频
 
 ## License
