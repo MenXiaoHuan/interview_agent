@@ -4,8 +4,6 @@ import com.multimodal.interview.common.result.ApiResponse;
 import com.multimodal.interview.common.security.RsaPasswordCryptoService;
 import com.multimodal.interview.dto.ForgotResetRequest;
 import com.multimodal.interview.dto.ForgotSendCodeRequest;
-import com.multimodal.interview.dto.ResetCodeResponse;
-import com.multimodal.interview.entity.PasswordResetToken;
 import com.multimodal.interview.service.ForgotPasswordService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -50,48 +48,5 @@ public class ForgotPasswordController {
         rsaPasswordCryptoService.decrypt(request);
         forgotPasswordService.reset(request);
         return ApiResponse.success("密码重置成功", null);
-    }
-    /**
-     * 查询最新有效验证码（通用contact）。
-     *
-     * @param contact 联系方式
-     * @return 统一响应体
-     */
-    @Operation(summary = "查询最新有效验证码（通用contact）")
-    @GetMapping("/code")
-    public ApiResponse<ResetCodeResponse> getCodeByContact(@RequestParam String contact){
-        PasswordResetToken token = forgotPasswordService.getLatestValidByContact(contact);
-        if (token == null) {
-            return ApiResponse.success("无有效验证码", null);
-        }
-        ResetCodeResponse resp = new ResetCodeResponse();
-        resp.setContact(token.getContact());
-        resp.setChannel(token.getChannel());
-        resp.setCode(token.getCode());
-        resp.setCreatedAt(token.getCreatedAt());
-        resp.setExpiresAt(token.getExpiresAt());
-        return ApiResponse.success(resp);
-    }
-    /**
-     * 查询最新有效验证码（邮箱）。
-     *
-     * @param email 邮箱地址
-     * @return 统一响应体
-     */
-    @Operation(summary = "查询最新有效验证码（邮箱）")
-    @GetMapping("/email-code")
-    public ApiResponse<ResetCodeResponse> getCodeByEmail(@RequestParam String email){
-        return getCodeByContact(email);
-    }
-    /**
-     * 查询最新有效验证码（手机号）。
-     *
-     * @param phone 手机号
-     * @return 统一响应体
-     */
-    @Operation(summary = "查询最新有效验证码（手机号）")
-    @GetMapping("/phone-code")
-    public ApiResponse<ResetCodeResponse> getCodeByPhone(@RequestParam String phone){
-        return getCodeByContact(phone);
     }
 }
