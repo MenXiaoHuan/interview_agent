@@ -209,6 +209,7 @@ import { getUserSession } from '@/utils/user-session';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
 import { API } from '@/utils/api'; // 导入API配置
+import request from '@/utils/request';
 import SmartIcon from '@/components/SmartIcon.vue';
 import {
   ensureActiveComprehensiveAssessmentSession,
@@ -396,21 +397,17 @@ const removeFile = () => {
 // 获取岗位详情
 const getJobDetails = async (jobId) => {
   try {
-    const response = await uni.request({
+    const response = await request({
       url: API.JOB.DETAIL(jobId),
-      method: 'GET',
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${uni.getStorageSync('token')}`
-      }
+      method: 'GET'
     });
     
     console.log('职位详情响应:', response);
     
-    if (response.statusCode === 200 && response.data && response.data.code === 200) {
-      return response.data.data;
+    if (response.code === 200 && response.data) {
+      return response.data;
     } else {
-      console.error('获取职位详情失败:', response.data?.message || '未知错误');
+      console.error('获取职位详情失败:', response.message || '未知错误');
       return null;
     }
   } catch (error) {

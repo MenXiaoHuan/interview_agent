@@ -283,6 +283,7 @@ import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
 import { API } from '@/utils/api';
 import { getAllChoiceQuestions, getChoiceQuestionsByJob, addChoiceQuestion, updateChoiceQuestion, deleteChoiceQuestion } from '@/utils/api';
+import request from '@/utils/request';
 
 const userStore = useUserStore();
 const { isEyeCareMode } = storeToRefs(userStore);
@@ -350,19 +351,16 @@ const fetchJobs = async () => {
       throw new Error('请先登录');
     }
 
-    const response = await uni.request({
+    const response = await request({
       url: API.JOB.LIST,
-      method: 'GET',
-      header: {
-        'Authorization': `Bearer ${token}`
-      }
+      method: 'GET'
     });
 
-    if (response.statusCode === 200 && response.data.code === 200) {
-      const data = response.data.data;
+    if (response.code === 200) {
+      const data = response.data;
       jobs.value = data || [];
     } else {
-      throw new Error(response.data.message || '获取岗位数据失败');
+      throw new Error(response.message || '获取岗位数据失败');
     }
   } catch (error) {
     console.error('获取岗位数据失败:', error);

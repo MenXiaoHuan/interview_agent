@@ -384,6 +384,7 @@ import { storeToRefs } from 'pinia';
 import { API } from '@/utils/api';
 import { getUserSession, setUserSessionPatch, subscribeUserSession, getSessionToken } from '@/utils/user-session';
 import { applyAvatarFallback, resolveUserAvatar } from '@/utils/avatar';
+import request from '@/utils/request';
 
 const showModal = ref(false);
 const userAvatar = ref(resolveUserAvatar(getUserSession()));
@@ -623,22 +624,18 @@ const saveNickname = async () => {
       mask: true
     });
 
-    const response = await uni.request({
+    const response = await request({
       url: API.USER.NICKNAME,
       method: 'PUT',
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
       data: {
         nickname: newNickname
       }
     });
 
-    const { statusCode, data } = response;
+    const { code, data, message } = response;
 
-    if (statusCode === 200 && data.code === 200) {
-      setUserSessionPatch({ nickname: newNickname, updateTime: data.data.updateTime });
+    if (code === 200) {
+      setUserSessionPatch({ nickname: newNickname, updateTime: data?.updateTime });
       try { userStore.setUserInfo(getUserSession()); } catch {}
       
       // 更新显示的昵称
@@ -650,7 +647,7 @@ const saveNickname = async () => {
         duration: 2000
         });
     } else {
-      throw new Error(data.message || '修改失败');
+      throw new Error(message || '修改失败');
     }
   } catch (error) {
     console.error('保存昵称失败:', error);
@@ -776,17 +773,16 @@ const handlePasswordChange = async () => {
     isSubmittingProfile.value = true;
     const token = getSessionToken();
     if (!token) { uni.showToast({ title: '请先登录', icon: 'none' }); return; }
-    const response = await uni.request({
+    const response = await request({
       url: API.USER.CHANGE_PASSWORD,
       method: 'PUT',
-      header: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       data: { oldPassword: currentPassword.value, newPassword: newPassword.value }
     });
-    if (response.statusCode === 200 && response.data.code === 200) {
+    if (response.code === 200) {
       uni.showToast({ title: '密码修改成功', icon: 'success' });
       activeProfileTab.value = 'menu';
       currentPassword.value = newPassword.value = confirmPassword.value = '';
-    } else { throw new Error(response.data.message || '修改失败'); }
+    } else { throw new Error(response.message || '修改失败'); }
   } catch (e) {
     uni.showToast({ title: e.message || '修改失败，请重试', icon: 'none' });
   } finally { isSubmittingProfile.value = false; }
@@ -800,18 +796,17 @@ const handleEmailBinding = async () => {
     isSubmittingProfile.value = true;
     const token = getSessionToken();
     if (!token) { uni.showToast({ title: '请先登录', icon: 'none' }); return; }
-    const response = await uni.request({
+    const response = await request({
       url: API.USER.BIND_EMAIL,
       method: 'PUT',
-      header: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       data: { email: email.value }
     });
-    if (response.statusCode === 200) {
+    if (response.code === 200) {
       uni.showToast({ title: '邮箱绑定成功', icon: 'success' });
       setUserSessionPatch({ email: email.value });
       emailStatus.value = { text: '已绑定', class: 'status-bind' };
       activeProfileTab.value = 'menu';
-    } else { throw new Error(response.data.message || '绑定失败'); }
+    } else { throw new Error(response.message || '绑定失败'); }
   } catch (e) {
     uni.showToast({ title: e.message || '绑定失败，请重试', icon: 'none' });
   } finally { isSubmittingProfile.value = false; }
@@ -825,18 +820,17 @@ const handlePhoneBinding = async () => {
     isSubmittingProfile.value = true;
     const token = getSessionToken();
     if (!token) { uni.showToast({ title: '请先登录', icon: 'none' }); return; }
-    const response = await uni.request({
+    const response = await request({
       url: API.USER.BIND_PHONE,
       method: 'PUT',
-      header: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       data: { phone: phone.value }
     });
-    if (response.statusCode === 200) {
+    if (response.code === 200) {
       uni.showToast({ title: '手机号绑定成功', icon: 'success' });
       setUserSessionPatch({ phone: phone.value });
       phoneStatus.value = { text: '已绑定', class: 'status-bind' };
       activeProfileTab.value = 'menu';
-    } else { throw new Error(response.data.message || '绑定失败'); }
+    } else { throw new Error(response.message || '绑定失败'); }
   } catch (e) {
     uni.showToast({ title: e.message || '绑定失败，请重试', icon: 'none' });
   } finally { isSubmittingProfile.value = false; }
@@ -855,9 +849,9 @@ const fetchUserProfile = async () => {
   try {
     const token = getSessionToken();
     if (!token) return;
-    const response = await uni.request({ url: API.USER.PROFILE, method: 'GET', header: { 'Authorization': `Bearer ${token}` } });
-    if (response.statusCode === 200 && response.data.code === 200) {
-      const userData = response.data.data;
+    const response = await request({ url: API.USER.PROFILE, method: 'GET' });
+    if (response.code === 200) {
+      const userData = response.data;
       username.value = userData.username || username.value;
       registerTime.value = formatDate(userData.createdAt) || registerTime.value;
       identityText.value = (function(ut){ const n = Number(ut); if (n===3) return '管理员'; if (n===2) return '会员'; if (n===1) return '普通用户'; return '未知'; })(userData.userType);

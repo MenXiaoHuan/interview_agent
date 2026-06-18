@@ -267,6 +267,7 @@ import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
 import { useRouter, useRoute } from 'vue-router';
 import { getUserSession, subscribeUserSession, getSessionToken } from '@/utils/user-session';
+import request from '@/utils/request';
 
 const router = useRouter();
 const route = useRoute();
@@ -319,18 +320,15 @@ const closeSpecializedDetailModal = () => {
 // 获取简历评估历史
 const fetchResumeHistory = async (userId, token) => {
   try {
-    const response = await uni.request({
+    const response = await request({
       url: API.RESUME.HISTORY(userId),
-      method: 'GET',
-      header: {
-        'Authorization': `Bearer ${token}`
-      }
+      method: 'GET'
     });
 
-    console.log('简历评估历史响应:', response.data); // 添加日志
+    console.log('简历评估历史响应:', response); // 添加日志
 
-    if (response.data.code === 200) {
-      specializedRecords.value.resume = response.data.data.map(record => ({
+    if (response.code === 200) {
+      specializedRecords.value.resume = response.data.map(record => ({
         id: record.id,
         date: record.createdAt,
         score: record.score,
@@ -354,18 +352,15 @@ const fetchResumeHistory = async (userId, token) => {
 // 获取面试题目历史
 const fetchQuestionHistory = async (userId, token) => {
   try {
-    const response = await uni.request({
+    const response = await request({
       url: API.INTERVIEW.QUESTION_HISTORY(userId),
-      method: 'GET',
-      header: {
-        'Authorization': `Bearer ${token}`
-      }
+      method: 'GET'
     });
     
-    console.log('试题作答历史响应:', response.data);
+    console.log('试题作答历史响应:', response);
 
-    if (response.data.code === 200) {
-      specializedRecords.value.questions = response.data.data.map(record => ({
+    if (response.code === 200) {
+      specializedRecords.value.questions = response.data.map(record => ({
         id: record.id,
         date: record.createdAt,
         score: record.totalScore,
@@ -384,24 +379,16 @@ const fetchQuestionHistory = async (userId, token) => {
 // 获取场景评估历史
 const fetchAudioHistory = async (userId, token) => {
   try {
-    const response = await uni.request({
+    const response = await request({
       url: API.SCENARIO.HISTORY(userId),
-      method: 'GET',
-      header: {
-        'Authorization': `Bearer ${token}`
-      }
+      method: 'GET'
     });
 
     console.log('场景评估历史响应:', response); // 注意：这里打印完整响应，便于调试
 
-    // 检查网络请求状态码
-    if (response.statusCode === 200) {
-      // 获取服务器返回的实际数据
-      const serverData = response.data;
-
-      // 检查服务器业务状态码和数据格式
-      if (serverData.code === 200 && Array.isArray(serverData.data)) {
-        specializedRecords.value.audio = serverData.data.map(record => ({
+    if (response.code === 200) {
+      if (Array.isArray(response.data)) {
+        specializedRecords.value.audio = response.data.map(record => ({
           id: record.id,
           date: addHours(record.createTime, 0),
           score: record.totalScore,
@@ -421,10 +408,10 @@ const fetchAudioHistory = async (userId, token) => {
           ].filter(Boolean)
         }));
       } else {
-        console.error('Failed to fetch audio history: Invalid server response format', serverData);
+        console.error('Failed to fetch audio history: Invalid server response format', response);
       }
     } else {
-      console.error('Failed to fetch audio history: HTTP request failed', response.statusCode);
+      console.error('Failed to fetch audio history: HTTP request failed', response.code);
     }
   } catch (err) {
     console.error('Failed to fetch audio history:', err);
@@ -434,19 +421,16 @@ const fetchAudioHistory = async (userId, token) => {
 
 const fetchComprehensiveRecords = async (userId, token) => {
   try {
-    const response = await uni.request({
+    const response = await request({
       url: API.COMPREHENSIVE.HISTORY(userId),
-      method: 'GET',
-      header: {
-        'Authorization': `Bearer ${token}`
-      }
+      method: 'GET'
     });
 
-    console.log('综合评估报告响应:', response.data);
+    console.log('综合评估报告响应:', response);
 
-    if (response.data.code === 200) {
+    if (response.code === 200) {
       // 按createTime倒序排列
-      const sortedData = response.data.data.slice().sort((a, b) => new Date(b.createTime) - new Date(a.createTime));
+      const sortedData = response.data.slice().sort((a, b) => new Date(b.createTime) - new Date(a.createTime));
       comprehensiveRecords.value = sortedData.map(record => ({
         id: record.id,
         date: formatDate(record.createTime),

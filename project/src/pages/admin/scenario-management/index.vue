@@ -161,6 +161,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
 import { API } from '@/utils/api';
+import request from '@/utils/request';
 
 const userStore = useUserStore();
 const { isEyeCareMode } = storeToRefs(userStore);
@@ -221,18 +222,15 @@ const fetchJobs = async () => {
       throw new Error('请先登录');
     }
 
-    const response = await uni.request({
+    const response = await request({
       url: API.JOB.LIST,
-      method: 'GET',
-      header: {
-        'Authorization': `Bearer ${token}`
-      }
+      method: 'GET'
     });
 
-    if (response.statusCode === 200 && response.data.code === 200) {
-      jobs.value = response.data.data || [];
+    if (response.code === 200) {
+      jobs.value = response.data || [];
     } else {
-      throw new Error(response.data.message || '获取岗位数据失败');
+      throw new Error(response.message || '获取岗位数据失败');
     }
   } catch (error) {
     console.error('获取岗位数据失败:', error);
@@ -258,23 +256,20 @@ const fetchScenarios = async () => {
       url = API.SCENARIO_QUESTION.GET_ALL;
     }
 
-    const response = await uni.request({
+    const response = await request({
       url: url,
-      method: 'GET',
-      header: {
-        'Authorization': `Bearer ${token}`
-      }
+      method: 'GET'
     });
 
-    if (response.statusCode === 200 && response.data.code === 200) {
-      const raw = response.data.data || [];
+    if (response.code === 200) {
+      const raw = response.data || [];
       const keyword = (filters.value.keyword || '').trim().toLowerCase();
       const filtered = keyword ? raw.filter(s => (s.question || '').toLowerCase().includes(keyword)) : raw;
       allScenarios.value = filtered;
       totalItems.value = allScenarios.value.length;
       updatePagedScenarios();
     } else {
-      throw new Error(response.data.message || '获取场景数据失败');
+      throw new Error(response.message || '获取场景数据失败');
     }
   } catch (error) {
     console.error('获取场景数据失败:', error);
@@ -377,29 +372,21 @@ const saveScenario = async () => {
     let response;
     if (isEditing.value) {
       // 更新场景：POST /api/scenario-question/update
-      response = await uni.request({
+      response = await request({
         url: API.SCENARIO_QUESTION.UPDATE,
         method: 'POST',
-        header: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         data: scenarioForm.value
       });
     } else {
       // 创建场景：POST /api/scenario-question/create
-      response = await uni.request({
+      response = await request({
         url: API.SCENARIO_QUESTION.CREATE,
         method: 'POST',
-        header: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         data: scenarioForm.value
       });
     }
 
-    if (response.statusCode === 200 && response.data.code === 200) {
+    if (response.code === 200) {
       uni.showToast({
         title: isEditing.value ? '更新成功' : '添加成功',
         icon: 'success'
@@ -409,7 +396,7 @@ const saveScenario = async () => {
       await fetchScenarios();
       closeScenarioModal();
     } else {
-      throw new Error(response.data.message || (isEditing.value ? '更新失败' : '添加失败'));
+      throw new Error(response.message || (isEditing.value ? '更新失败' : '添加失败'));
     }
   } catch (error) {
     console.error(isEditing.value ? '更新场景失败:' : '添加场景失败:', error);
@@ -447,15 +434,12 @@ const confirmDelete = async () => {
     }
 
     // 删除场景：POST /api/scenario-question/delete/{id}
-    const response = await uni.request({
+    const response = await request({
       url: `${API.SCENARIO_QUESTION.DELETE(deleteTarget.value.id)}`,
-      method: 'POST',
-      header: {
-        'Authorization': `Bearer ${token}`
-      }
+      method: 'POST'
     });
 
-    if (response.statusCode === 200 && response.data.code === 200) {
+    if (response.code === 200) {
       uni.showToast({
         title: '删除成功',
         icon: 'success'
@@ -465,7 +449,7 @@ const confirmDelete = async () => {
       await fetchScenarios();
       closeDeleteModal();
     } else {
-      throw new Error(response.data.message || '删除失败');
+      throw new Error(response.message || '删除失败');
     }
   } catch (error) {
     console.error('删除场景失败:', error);

@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { BASE_URL } from '@/utils/api-config'
+import { getToken, removeStorage } from '@/utils/storage'
 
 const SUCCESS_CODE = 200
 const DEFAULT_TIMEOUT = 10000
@@ -22,19 +23,6 @@ const client = axios.create({
 let cachedRsaPublicKeyPem = null
 let cachedRsaPublicKeyPromise = null
 
-function getToken() {
-  try {
-    const token = typeof window !== 'undefined' ? window.sessionStorage.getItem('token') : null
-    if (token) {
-      return token
-    }
-  } catch {}
-  if (typeof uni !== 'undefined') {
-    return uni.getStorageSync('token') || null
-  }
-  return null
-}
-
 function handleErrorPayload(status, data) {
   if (typeof uni === 'undefined') {
     return
@@ -44,15 +32,9 @@ function handleErrorPayload(status, data) {
 
   switch (status) {
     case 401:
-      try {
-        if (typeof window !== 'undefined') {
-          window.sessionStorage.removeItem('token')
-          window.sessionStorage.removeItem('userInfo')
-          window.sessionStorage.removeItem('activeUserId')
-        }
-      } catch {}
-      uni.removeStorageSync('token')
-      uni.removeStorageSync('userInfo')
+      removeStorage('token')
+      removeStorage('userInfo')
+      removeStorage('activeUserId')
       uni.showToast({
         title: data?.message || '请重新登录',
         icon: 'none',

@@ -362,6 +362,7 @@ import SmartIcon from '@/components/SmartIcon.vue'
 import { API, getBlessings, createBlessing as apiCreateBlessing, updateBlessing as apiUpdateBlessing, deleteBlessing as apiDeleteBlessing } from '@/utils/api'
 import { getUserSession, setUserSessionPatch, refreshUserSessionFromServer, subscribeUserSession, getSessionToken } from '@/utils/user-session'
 import { applyAvatarFallback, resolveUserAvatar } from '@/utils/avatar'
+import request from '@/utils/request'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -786,9 +787,9 @@ const stopFireworks = () => {
   try {
     const token = getSessionToken()
     if (token) {
-      uni.request({ url: API.USER.SURPRISE_MODE, method: 'PUT', header: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, data: { surpriseMode: 0 } }).then(resp => {
-        if (resp.statusCode===200 && resp.data?.code===200) {
-          surpriseMode.value = Number(resp.data?.data?.surpriseMode ?? 0)
+      request({ url: API.USER.SURPRISE_MODE, method: 'PUT', data: { surpriseMode: 0 } }).then(resp => {
+        if (resp.code===200) {
+          surpriseMode.value = Number(resp.data?.surpriseMode ?? 0)
         }
       }).catch(()=>{})
     }
@@ -806,11 +807,11 @@ const triggerFireworks = async () => {
   const token = getSessionToken()
   if (!token) { uni.showToast({ title: '请先登录后开启惊喜', icon: 'none' }); return }
   try {
-    const resp = await uni.request({ url: API.USER.SURPRISE_MODE, method: 'PUT', header: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, data: { surpriseMode: 1 } })
-    if (resp.statusCode===200 && resp.data?.code===200) {
-      surpriseMode.value = Number(resp.data?.data?.surpriseMode ?? 1)
+    const resp = await request({ url: API.USER.SURPRISE_MODE, method: 'PUT', data: { surpriseMode: 1 } })
+    if (resp.code===200) {
+      surpriseMode.value = Number(resp.data?.surpriseMode ?? 1)
     } else {
-      uni.showToast({ title: resp.data?.message || '开启失败', icon: 'none' })
+      uni.showToast({ title: resp.message || '开启失败', icon: 'none' })
       return
     }
   } catch (e) {
@@ -865,7 +866,7 @@ const ensureSurpriseClosed = async () => {
     if (!token) return
     if (surpriseMode.value === 1 || fireActive.value) {
       stopFireworks()
-      await uni.request({ url: API.USER.SURPRISE_MODE, method: 'PUT', header: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, data: { surpriseMode: 0 } })
+      await request({ url: API.USER.SURPRISE_MODE, method: 'PUT', data: { surpriseMode: 0 } })
       fireActive.value = false
       surpriseMode.value = 0
     }
@@ -932,7 +933,7 @@ const openFeedbackStatus = async () => {
   try {
     const token = uni.getStorageSync('token')
     if (!token) { uni.showToast({ title: '请先登录后查看', icon: 'none' }); return }
-    const resp = await uni.request({ url: API.FEEDBACK.MY_STATUS, method: 'GET', header: { 'Authorization': `Bearer ${token}` } })
+    const resp = await request({ url: API.FEEDBACK.MY_STATUS, method: 'GET' })
     const arr = parseList(resp)
     myStatuses.value = arr.slice().sort((a, b) => {
       const ta = Date.parse(a.updatedAt || a.replyTime || a.createdAt || 0)
@@ -986,7 +987,7 @@ const openAdminFeedback = async () => {
     const token = uni.getStorageSync('token')
     if (!token) { uni.showToast({ title: '请先登录后查看', icon: 'none' }); return }
     if (!isAdmin.value) { uni.showToast({ title: '仅管理员可用', icon: 'none' }); return }
-    const resp = await uni.request({ url: API.FEEDBACK.LIST, method: 'GET', header: { 'Authorization': `Bearer ${token}` } })
+    const resp = await request({ url: API.FEEDBACK.LIST, method: 'GET' })
     const arr = parseList(resp)
     adminFeedback.value = arr.slice().sort((a, b) => {
       const ta = Date.parse(a.updatedAt || a.createdAt || 0)
@@ -999,7 +1000,8 @@ const selectFeedback = async (it) => {
   selectedFeedback.value = it
   try {
     const token = uni.getStorageSync('token')
-    const resp = await uni.request({ url: API.FEEDBACK.DETAIL(it.id), method: 'GET', header: { 'Authorization': `Bearer ${token}` } })
+    if (!token) return
+    const resp = await request({ url: API.FEEDBACK.DETAIL(it.id), method: 'GET' })
     const obj = parseObject(resp)
     if (obj) selectedFeedback.value = obj
   } catch {}
@@ -1009,7 +1011,8 @@ const submitReply = async () => {
   try {
     replying.value = true
     const token = uni.getStorageSync('token')
-    const resp = await uni.request({ url: API.FEEDBACK.REPLY(selectedFeedback.value.id), method: 'POST', header: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, data: { id: selectedFeedback.value.id, reply: replyText.value, status: replyStatus.value } })
+    if (!token) return
+    const resp = await request({ url: API.FEEDBACK.REPLY(selectedFeedback.value.id), method: 'POST', data: { id: selectedFeedback.value.id, reply: replyText.value, status: replyStatus.value } })
     const updated = parseObject(resp)
     if (updated) {
       uni.showToast({ title: '回复成功', icon: 'success' })
@@ -1017,7 +1020,7 @@ const submitReply = async () => {
       selectedFeedback.value = updated
       adminFeedback.value = (adminFeedback.value || []).map(it => it.id === updated.id ? { ...it, status: updated.status, reply: updated.reply, updatedAt: updated.updatedAt } : it)
     } else {
-      const msg = resp?.data?.message || '回复失败'
+      const msg = resp?.message || '回复失败'
       uni.showToast({ title: msg, icon: 'none' })
     }
   } finally { replying.value = false }
@@ -1030,7 +1033,8 @@ const openMyFeedbackDetail = async (it) => {
   myDetail.value = null
   try {
     const token = uni.getStorageSync('token')
-    const resp = await uni.request({ url: API.FEEDBACK.DETAIL(it.id), method: 'GET', header: { 'Authorization': `Bearer ${token}` } })
+    if (!token) return
+    const resp = await request({ url: API.FEEDBACK.DETAIL(it.id), method: 'GET' })
     const obj = parseObject(resp)
     if (obj) myDetail.value = obj
   } catch {}
@@ -1051,14 +1055,14 @@ const confirmNickname = async () => {
     nicknameSubmitting.value = true
     const token = uni.getStorageSync('token')
     if (!token) { uni.showToast({ title: '请先登录', icon: 'none' }); return }
-    const resp = await uni.request({ url: API.USER.NICKNAME, method: 'PUT', header: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, data: { nickname: String(nicknameInput.value).trim() } })
-    if (resp.statusCode === 200 && resp.data && resp.data.code === 200) {
+    const resp = await request({ url: API.USER.NICKNAME, method: 'PUT', data: { nickname: String(nicknameInput.value).trim() } })
+    if (resp.code === 200) {
       const updated = setUserSessionPatch({ nickname: String(nicknameInput.value).trim() })
       try { userStore.setUserInfo(updated) } catch {}
       showNicknameModal.value = false
       uni.showToast({ title: '昵称设置成功', icon: 'success', duration: 1200 })
     } else {
-      const msg = resp.data?.message || '设置失败'
+      const msg = resp.message || '设置失败'
       nicknameError.value = msg
     }
   } finally {

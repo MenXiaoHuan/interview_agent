@@ -1,4 +1,5 @@
 import { API } from '@/utils/api'
+import request from '@/utils/request'
 
 const KEY = 'userInfo'
 const TOKEN_KEY = 'token'
@@ -80,9 +81,9 @@ export async function refreshUserSessionFromServer() {
   try {
     const token = getSessionToken()
     if (!token) return getUserSession()
-    const resp = await uni.request({ url: API.USER.PROFILE, method: 'GET', header: { 'Authorization': `Bearer ${token}` } })
-    const data = resp?.data?.data || {}
-    if (resp.statusCode === 200 && resp.data?.code === 200) {
+    const resp = await request({ url: API.USER.PROFILE, method: 'GET' })
+    const data = resp?.data || {}
+    if (resp.code === 200) {
       return setUserSessionPatch(data)
     }
     return getUserSession()
