@@ -3,8 +3,11 @@ package com.multimodal.interview.config;
 import com.multimodal.interview.common.filter.JwtAuthenticationFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -23,17 +26,21 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CorsConfigurationSource corsConfigurationSource;
+    private final boolean swaggerEnabled;
 
     /**
      * 创建安全配置。
      *
      * @param jwtAuthenticationFilter JWT 认证过滤器
      * @param corsConfigurationSource 跨域配置源
+     * @param swaggerEnabled 是否允许匿名访问 Swagger
      */
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          CorsConfigurationSource corsConfigurationSource) {
+                          CorsConfigurationSource corsConfigurationSource,
+                          @Value("${app.swagger.enabled:false}") boolean swaggerEnabled) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.corsConfigurationSource = corsConfigurationSource;
+        this.swaggerEnabled = swaggerEnabled;
     }
 
     /**
@@ -62,14 +69,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot/**", "/api/auth/rsa-public-key").permitAll()
-                        .requestMatchers("/avatar/**").permitAll()
-                        .requestMatchers("/api/job-categories/**").permitAll()
-                        .requestMatchers("/api/jobs/**", "/jobs/**").permitAll()
-                        .requestMatchers("/api/interview/questions/**", "/interview/questions/**").permitAll()
-                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .anyRequest().authenticated())
+                .authorizeHttpRequests(this::configureAuthorization)
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
                         .logoutSuccessHandler((request, response, authentication) -> {
@@ -93,5 +93,17 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    private void configureAuthorization(
+            AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry auth) {
+        auth.requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot/**", "/api/auth/rsa-public-key").permitAll()
+                .requestMatchers("/avatar/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/job-categories/**", "/api/job/**", "/api/jobs/**", "/jobs/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/interview/questions/**", "/interview/questions/**").permitAll();
+        if (swaggerEnabled) {
+            auth.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll();
+        }
+        auth.anyRequest().authenticated();
     }
 }
