@@ -104,6 +104,13 @@ public class SecurityConfig {
         if (swaggerEnabled) {
             auth.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll();
         }
+        auth.requestMatchers(HttpMethod.POST,
+                        "/api/job-categories", "/api/job-categories/**", "/api/jobs", "/api/jobs/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT,
+                        "/api/job-categories", "/api/job-categories/**", "/api/jobs", "/api/jobs/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE,
+                        "/api/job-categories", "/api/job-categories/**", "/api/jobs", "/api/jobs/**").hasRole("ADMIN")
+                .requestMatchers("/api/admin/**").hasRole("ADMIN");
         auth.anyRequest().authenticated();
     }
 }

@@ -74,7 +74,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     UserDetails userDetails = org.springframework.security.core.userdetails.User
                             .withUsername(username)
                             .password(user.getPassword())
-                            .authorities(List.of(new SimpleGrantedAuthority("ROLE_USER")))
+                            .authorities(resolveAuthorities(user))
                             .build();
 
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
@@ -91,6 +91,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    public static List<SimpleGrantedAuthority> resolveAuthorities(User user) {
+        if (user != null && Integer.valueOf(3).equals(user.getUserType())) {
+            return List.of(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        }
+        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
     }
 
     /**
