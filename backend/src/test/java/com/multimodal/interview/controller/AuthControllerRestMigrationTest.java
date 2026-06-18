@@ -1,10 +1,10 @@
 package com.multimodal.interview.controller;
 
 import com.multimodal.interview.common.security.RsaPasswordCryptoService;
+import com.multimodal.interview.common.interceptor.RateLimitInterceptor;
 import com.multimodal.interview.dto.LoginRequest;
 import com.multimodal.interview.entity.User;
 import com.multimodal.interview.service.AuthService;
-import io.github.bucket4j.Bucket;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -35,11 +35,11 @@ class AuthControllerRestMigrationTest {
     private RsaPasswordCryptoService rsaPasswordCryptoService;
 
     @MockBean
-    private Bucket bucket;
+    private RateLimitInterceptor rateLimitInterceptor;
 
     @Test
     void shouldReturnRsaPublicKey() throws Exception {
-        when(bucket.tryConsume(1)).thenReturn(true);
+        when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(rsaPasswordCryptoService.getPublicKeyPem()).thenReturn("-----BEGIN PUBLIC KEY-----demo");
 
         mockMvc.perform(get("/api/auth/rsa-public-key"))
@@ -58,7 +58,7 @@ class AuthControllerRestMigrationTest {
         user.setEyeCareMode(0);
         user.setSurpriseMode(0);
 
-        when(bucket.tryConsume(1)).thenReturn(true);
+        when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(rsaPasswordCryptoService.decrypt(any(LoginRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(authService.login(any())).thenReturn(user);
         when(authService.generateToken(any())).thenReturn("token");

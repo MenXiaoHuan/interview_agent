@@ -246,7 +246,7 @@ logging:
 Run:
 
 ```bash
-grep -R "sk-fa7a2c9168a34bc3b38b91c8ea66b102\\|91ff9402ea218f8c8cb7e92e292eb768\\|xQ7\\$pL9\\|12345678" backend/src/main/resources || true
+grep -R "REAL_DEEPSEEK_KEY\\|REAL_XUNFEI_KEY\\|REAL_JWT_SECRET\\|REAL_DB_PASSWORD" backend/src/main/resources || true
 ```
 
 Expected: no output.
@@ -1462,7 +1462,7 @@ npm run build:h5
 - [ ] Confirm secrets are absent:
 
 ```bash
-grep -R "sk-fa7a2c9168a34bc3b38b91c8ea66b102\\|91ff9402ea218f8c8cb7e92e292eb768\\|xQ7\\$pL9\\|12345678" . --exclude-dir=.git || true
+grep -R "REAL_DEEPSEEK_KEY\\|REAL_XUNFEI_KEY\\|REAL_JWT_SECRET\\|REAL_DB_PASSWORD" . --exclude-dir=.git || true
 ```
 
 - [ ] Confirm only expected files are modified:
