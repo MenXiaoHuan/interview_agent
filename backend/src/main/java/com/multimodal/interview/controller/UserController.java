@@ -40,10 +40,10 @@ public class UserController {
      */
     @Operation(summary = "获取用户资料")
     @GetMapping("/profile")
-    public ApiResponse<User> getProfile(Authentication authentication){
+    public ApiResponse<UserResponse> getProfile(Authentication authentication){
         String username = authentication.getName();
         User user = userService.getUserProfile(username);
-        return ApiResponse.success("获取用户资料成功", user);
+        return ApiResponse.success("获取用户资料成功", UserResponse.from(user));
     }
     /**
      * 用户护眼模式设置。
@@ -228,9 +228,12 @@ public class UserController {
      */
     @Operation(summary = "获取用户列表")
     @GetMapping("/list")
-    public ApiResponse<List<User>> getUserList(@RequestParam int page, @RequestParam int size){
+    public ApiResponse<List<UserResponse>> getUserList(@RequestParam int page, @RequestParam int size){
         List<User> userList = userService.findAll(page, size);
-        return ApiResponse.success("获取用户列表成功", userList);
+        List<UserResponse> response = userList.stream()
+                .map(UserResponse::from)
+                .toList();
+        return ApiResponse.success("获取用户列表成功", response);
     }
     /**
      * 删除用户（根据username）。

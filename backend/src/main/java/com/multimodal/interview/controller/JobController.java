@@ -4,6 +4,7 @@ import com.multimodal.interview.common.result.ApiResponse;
 import com.multimodal.interview.dto.JobCategoryCreateRequest;
 import com.multimodal.interview.dto.JobCategoryUpdateRequest;
 import com.multimodal.interview.dto.JobCreateRequest;
+import com.multimodal.interview.dto.JobResponse;
 import com.multimodal.interview.dto.JobUpdateRequest;
 import com.multimodal.interview.entity.Job;
 import com.multimodal.interview.entity.JobCategory;
@@ -51,11 +52,14 @@ public class JobController {
     @Operation(summary = "获取分类下的岗位列表",
             description = "获取指定二级分类下的所有启用的岗位列表")
     @GetMapping("/job")
-    public ApiResponse<List<Job>> getJobs(
+    public ApiResponse<List<JobResponse>> getJobs(
             @Parameter(description = "二级分类ID", required = true)
             @NotNull(message = "分类ID不能为空")
             @RequestParam Long categoryId){
-        return ApiResponse.success(jobService.getJobsByCategory(categoryId));
+        List<JobResponse> jobs = jobService.getJobsByCategory(categoryId).stream()
+                .map(JobResponse::from)
+                .toList();
+        return ApiResponse.success(jobs);
     }
     /**
      * 获取岗位详情。
@@ -66,11 +70,11 @@ public class JobController {
     @Operation(summary = "获取岗位详情",
             description = "根据岗位ID获取岗位的详细信息，包括所属分类信息")
     @GetMapping("/job/{id}")
-    public ApiResponse<Job> getJobDetail(
+    public ApiResponse<JobResponse> getJobDetail(
             @Parameter(description = "岗位ID", required = true)
             @NotNull(message = "岗位ID不能为空")
             @PathVariable Long id){
-        return ApiResponse.success(jobService.getJobDetail(id));
+        return ApiResponse.success(JobResponse.from(jobService.getJobDetail(id)));
     }
 
     // ==================== 岗位分类管理接口 ====================
@@ -171,9 +175,9 @@ public class JobController {
     @Operation(summary = "创建具体岗位",
             description = "在指定二级分类下创建具体岗位")
     @PostMapping("/jobs")
-    public ApiResponse<Job> createJob(@Valid @RequestBody JobCreateRequest request){
+    public ApiResponse<JobResponse> createJob(@Valid @RequestBody JobCreateRequest request){
         Job job = jobService.createJob(request);
-        return ApiResponse.success("创建岗位成功", job);
+        return ApiResponse.success("创建岗位成功", JobResponse.from(job));
     }
     /**
      * 更新具体岗位。
@@ -184,9 +188,9 @@ public class JobController {
     @Operation(summary = "更新具体岗位",
             description = "更新具体岗位的信息")
     @PutMapping("/jobs")
-    public ApiResponse<Job> updateJob(@Valid @RequestBody JobUpdateRequest request){
+    public ApiResponse<JobResponse> updateJob(@Valid @RequestBody JobUpdateRequest request){
         Job job = jobService.updateJob(request);
-        return ApiResponse.success("更新岗位成功", job);
+        return ApiResponse.success("更新岗位成功", JobResponse.from(job));
     }
     /**
      * 获取所有岗位列表。
@@ -195,8 +199,11 @@ public class JobController {
     @Operation(summary = "获取所有岗位列表",
             description = "获取所有启用的岗位列表，包括二级岗位ID和分类信息")
     @GetMapping("/jobs")
-    public ApiResponse<List<Job>> getAllJobs(){
-        return ApiResponse.success(jobService.getAllJobsWithCategory());
+    public ApiResponse<List<JobResponse>> getAllJobs(){
+        List<JobResponse> jobs = jobService.getAllJobsWithCategory().stream()
+                .map(JobResponse::from)
+                .toList();
+        return ApiResponse.success(jobs);
     }
     /**
      * 删除具体岗位。
