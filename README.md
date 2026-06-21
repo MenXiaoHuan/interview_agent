@@ -4,7 +4,7 @@
 
 - 前端：`uni-app + Vue 3 + Vite`
 - 后端：`Spring Boot 3 + Spring Security + MyBatis`
-- 存储与中间件：`MySQL + Redis`
+- 存储与中间件：`MySQL + Redis + MinIO`
 - AI 与多模态：`Spring AI Alibaba Agent Framework`、简历解析、语音合成、音频转写、场景评测
 
 本文档按当前仓库代码结构更新，重点说明实际可见的页面、接口和启动方式。
@@ -55,11 +55,12 @@ flowchart LR
     A[uni-app H5 Frontend] --> B[Spring Boot Backend]
     B --> C[MySQL]
     B --> D[Redis]
-    B --> E[REST API]
-    B --> F[Swagger / OpenAPI]
-    B --> G[Agent Router + Skills]
-    B --> H[DeepSeek / AI Services]
-    B --> I[Speech / Audio Services]
+    B --> E[MinIO Avatar Storage]
+    B --> F[REST API]
+    B --> G[Swagger / OpenAPI]
+    B --> H[Agent Router + Skills]
+    B --> I[DeepSeek / AI Services]
+    B --> J[Speech / Audio Services]
 ```
 
 ## 前端页面
@@ -104,6 +105,7 @@ flowchart LR
 - `/api/feedback/*`：用户反馈
 - `/api/scenario-question/*`、`/scenario/*`：场景题与场景评测历史
 - `/api/speech/*`、`/api/transcription/*`：语音合成与音频转写
+- `/avatar`：后端代理读取 MinIO 中的头像对象
 
 另外，后端 `backend/src/main/resources/skills/` 下已经包含多个内置技能定义，例如：
 
@@ -143,6 +145,7 @@ flowchart LR
 - `Spring AI DeepSeek`
 - `SpringDoc OpenAPI / Swagger UI`
 - `Redisson`
+- `MinIO Java SDK`
 
 ### 文档与文件处理
 
@@ -153,6 +156,8 @@ flowchart LR
 
 - `MySQL`
 - `Redis`
+- `MinIO`
+- `Docker Compose`
 - `HTTPS` 本地证书
 - `Maven Wrapper`
 
@@ -174,7 +179,8 @@ interview_agent/
 │   │   ├── util/                # 文件、图片、JSON 等工具类
 │   │   └── InterviewAgentApplication.java
 │   └── src/main/resources/
-│       ├── application*.yml     # 分环境配置
+│       ├── application.yml      # 共享配置
+│       ├── application-dev.yml  # 本地开发配置
 │       ├── sql/                 # 数据库初始化脚本
 │       └── skills/              # 内置 Agent Skills
 ├── project/
@@ -187,6 +193,7 @@ interview_agent/
 │   │   └── static/              # 静态资源与展示图片
 │   ├── vite.config.js           # Vite + HTTPS 配置
 │   └── package.json
+├── docker-compose.yml          # 本地容器编排
 └── README.md
 ```
 
@@ -221,29 +228,77 @@ backend/src/main/resources/sql/interview_agent.sql
 interview_agent
 ```
 
-### 3. 检查后端配置
+### 3. 配置根目录 `.env`
 
-共享配置与分环境配置文件：
+根目录 `.env` 会被 Docker Compose 自动读取，也会通过 `env_file` 注入后端和前端容器。该文件包含真实密钥，已被 `.gitignore` 忽略，不应提交。
+
+当前 `.env` 建议按以下分组维护：
+
+```text
+Backend - Runtime
+Backend - Database
+Backend - Redis
+Backend - MinIO
+Backend - Security
+Backend - DeepSeek
+Backend - Xunfei
+Frontend - Runtime
+```
+
+当前默认关键项如下：
+
+- 后端端口：`8442`
+- 前端端口：`5172`
+- MySQL：Compose 内部 `mysql:3306/interview_agent`，宿主机端口 `3307`
+- Redis：Compose 内部 `redis:6379`
+- MinIO：API 端口 `9000`，控制台端口 `9001`
+- 头像存储：上传到 MinIO，数据库保存后端代理 URL `/avatar?object=...`
+- AI：DeepSeek 与讯飞相关 Key 通过 `.env` 注入
+
+后端仍保留以下配置文件：
 
 ```text
 backend/src/main/resources/application.yml
 backend/src/main/resources/application-dev.yml
-backend/src/main/resources/application-test.yml
-backend/src/main/resources/application-prod.yml
 ```
 
-当前默认关键项如下：
+### 4. Docker Compose 启动
+
+推荐使用 Docker Compose 启动完整本地环境：
+
+```bash
+docker compose up
+```
+
+Compose 会启动：
+
+- MySQL
+- Redis
+- MinIO
+- Spring Boot 后端
+- uni-app H5 前端
+
+默认访问地址：
+
+- 前端：`https://localhost:5172`
+- 后端：`http://localhost:8442`
+- MinIO API：`http://localhost:9000`
+- MinIO Console：`http://localhost:9001`
+
+### 5. 手动启动后端
+
+如果不使用 Compose，需要自己准备 MySQL、Redis 和 MinIO，并确保 `.env` 中的主机名改成本机可访问地址，例如 `localhost`。
+
+关键默认项：
 
 - MySQL：`jdbc:mysql://localhost:3306/interview_agent`
 - Redis：`localhost:6379`
 - 后端端口：`8442`
 - SSL：默认开启，证书 `classpath:springboot-local.p12`
-- 文件目录：`/home/file`
-- AI：DeepSeek 与讯飞相关配置通过环境变量注入
+- MinIO：`http://localhost:9000`
+- AI：DeepSeek 与讯飞相关配置通过环境变量或本地 `.env` 注入
 
 推荐优先通过环境变量覆盖这些配置，而不是直接提交敏感值。
-
-### 4. 启动后端
 
 ```bash
 cd backend
@@ -256,7 +311,7 @@ cd backend
 - Swagger UI：`https://localhost:8442/swagger-ui/index.html`
 - OpenAPI：`https://localhost:8442/v3/api-docs`
 
-### 5. 启动前端
+### 6. 手动启动前端
 
 ```bash
 cd project
@@ -266,18 +321,20 @@ npm run dev:h5
 
 默认地址：
 
-- 前端地址：`https://localhost:5173`
+- 前端地址：`https://localhost:5172`
 
-### 6. 联调前务必检查端口
+### 7. 联调前务必检查端口
 
 - 后端开发默认端口：`8442`
-- 前端开发默认接口地址：`https://localhost:8442`
-- 如需连接其他后端地址，请在前端环境文件中设置 `VITE_API_BASE_URL`
+- 前端开发默认端口：`5172`
+- 前端默认通过 Vite proxy 转发 `/api`、`/avatar`、`/scenario`
+- 如需连接其他后端地址，请在根目录 `.env` 中设置 `PLATFORM_WEB_API_PROXY_TARGET`
 
-### 7. HTTPS 说明
+### 8. HTTPS 说明
 
 - 前端 `vite.config.js` 已启用本地证书：`localhost+2.pem` 与 `localhost+2-key.pem`
-- 后端 `application.yml` 已默认开启 SSL
+- Compose 中后端默认关闭 SSL，前端通过 Vite proxy 访问后端容器
+- 手动启动后端时，`application-dev.yml` 默认开启 SSL，可通过 `PLATFORM_SSL_ENABLED=false` 覆盖
 - 浏览器首次访问本地 HTTPS 服务时，可能需要手动信任证书
 
 ## 接口示例
@@ -345,6 +402,20 @@ curl -k -X POST https://localhost:8442/api/resume/extract \
   -F "file=@/path/to/resume.pdf"
 ```
 
+### 7. 上传头像到 MinIO
+
+```bash
+curl -k -X POST https://localhost:8442/api/user/avatar/upload \
+  -H "Authorization: Bearer <your-jwt-token>" \
+  -F "file=@/path/to/avatar.png"
+```
+
+说明：
+
+- 后端会上传文件到 MinIO
+- 数据库保存后端代理 URL，例如 `/avatar?object=avatar%2Fuser-1%2Fxxx.png`
+- 前端展示头像时访问该代理 URL，由后端读取 MinIO 并返回图片流
+
 ## 部署说明
 
 ### 本地开发部署
@@ -397,16 +468,17 @@ npm run build:h5
 
 - 由 Nginx 统一处理 HTTPS 证书与域名
 - `/api/` 反代到 Spring Boot 服务
+- `/avatar` 反代到 Spring Boot 服务，由后端代理读取 MinIO 头像
 - 前端静态资源由 Nginx 直接托管
 
 ## 开发注意事项
 
-- 前端开发默认使用 `https://localhost:8442` 作为后端接口地址
+- 前端开发默认使用 Vite proxy 访问后端，不再写死 `https://localhost:8442`
 - 后端很多接口需要 JWT，未认证会返回 `401`
 - 登录、注册、重置密码依赖前端 RSA 加密流程
-- 若后端无法启动，优先检查端口、数据库、Redis、SSL 证书和第三方 AI 配置
+- 若后端无法启动，优先检查端口、数据库、Redis、MinIO、SSL 证书和第三方 AI 配置
 - 若前端 HTTPS 打不开，优先检查 `project/localhost+2.pem` 与 `localhost+2-key.pem`
-- 若文件上传报错，检查 `app.file.root` 对应目录是否可写
+- 若头像上传报错，检查 MinIO 服务、bucket、access key、secret key 和 `PLATFORM_MINIO_INTERNAL_ENDPOINT`
 
 ## 后续可完善项
 
