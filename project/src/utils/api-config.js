@@ -1,3 +1,4 @@
-const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL
+const configuredBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').trim()
+const sameOriginBaseUrl = typeof window !== 'undefined' ? window.location.origin : ''
 
-export const BASE_URL = configuredBaseUrl || 'https://localhost:8442'
+export const BASE_URL = configuredBaseUrl || sameOriginBaseUrl

@@ -98,7 +98,7 @@ public class SecurityConfig {
     private void configureAuthorization(
             AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry auth) {
         auth.requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot/**", "/api/auth/rsa-public-key").permitAll()
-                .requestMatchers("/avatar/**").permitAll()
+                .requestMatchers("/avatar", "/avatar/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/job-categories/**", "/api/job/**", "/api/jobs/**", "/jobs/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/interview/questions/**", "/interview/questions/**").permitAll();
         if (swaggerEnabled) {

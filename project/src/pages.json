@@ -2,7 +2,7 @@
 	"pages": [{
 		"path": "pages/landing/index",
 		"style": {
-			"navigationBarTitleText": "AI 面试平台"
+			"navigationBarTitleText": "智能面试平台"
 		}
 	},{
 		"path": "pages/login/index",
@@ -32,7 +32,7 @@
 	},{
 		"path": "pages/interview-ai/index",
 		"style": {
-			"navigationBarTitleText": "AI面试"
+			"navigationBarTitleText": "智能面试"
 		}
 	},{
 		"path": "pages/interview-resume/index",

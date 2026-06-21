@@ -97,30 +97,13 @@ public class UserController {
         return ApiResponse.success("昵称更新成功", response);
     }
     /**
-     * 用户头像更新。
-     *
-     * @param request 请求体参数
-     * @param authentication 当前登录用户认证信息
-     * @return 统一响应体
-     */
-    @Operation(summary = "用户头像更新")
-    @PostMapping(value = "/avatar/upload", consumes = "application/json")
-    public ApiResponse<Void> updateAvatar(@Valid @RequestBody AvatarUpdateRequest request, Authentication authentication){
-        String username = authentication.getName();
-        userService.updateAvatar(username, request.getAvatarUrl());
-        return ApiResponse.success("头像更新成功", null);
-    }
-
-    /**
      * 上传头像文件并更新用户头像。
-     *
-     * 不改变现有业务逻辑：仍然沿用 `/api/user/avatar/upload`，只是增加对 multipart 的支持。
      *
      * @param file 头像文件（form field: file）
      * @param authentication 当前登录用户认证信息
      * @return 返回可访问的头像 URL
      */
-    @Operation(summary = "上传头像文件并更新用户头像", description = "上传图片文件到对象存储并返回可访问 URL")
+    @Operation(summary = "上传头像文件并更新用户头像", description = "上传图片文件，服务端保存到 MinIO 并返回后端代理 URL（/avatar）")
     @PostMapping(value = "/avatar/upload", consumes = "multipart/form-data")
     public ApiResponse<Map<String, Object>> uploadAvatarFile(
             @RequestPart("file") MultipartFile file,

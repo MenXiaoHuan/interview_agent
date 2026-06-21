@@ -8,6 +8,8 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,24 +17,35 @@ import static org.mockito.Mockito.when;
 class UserServiceImplAvatarUploadTest {
 
     @Test
-    void uploadsAvatarThroughStorageServiceAndPersistsReturnedUrl() {
+    void uploadsAvatarThroughStorageServiceAndSavesProxyUrl() {
         UserMapper userMapper = mock(UserMapper.class);
         SensitiveWordServiceImpl sensitiveWordService = mock(SensitiveWordServiceImpl.class);
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
         StorageService storageService = mock(StorageService.class);
-        UserServiceImpl service = new UserServiceImpl(userMapper, sensitiveWordService, passwordEncoder, storageService);
+        UserServiceImpl userService = new UserServiceImpl(
+                userMapper,
+                sensitiveWordService,
+                passwordEncoder,
+                storageService
+        );
         User user = new User();
         user.setId(7L);
         user.setUsername("alice");
-        MockMultipartFile file = new MockMultipartFile("file", "avatar.png", "image/png", "demo".getBytes());
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "avatar.png",
+                "image/png",
+                new byte[]{1, 2, 3}
+        );
+
         when(userMapper.findByUsername("alice")).thenReturn(user);
-        when(storageService.uploadAvatar(7L, file)).thenReturn("http://localhost:9000/interview-agent/avatar/7/demo.png");
-        when(userMapper.updateAvatar(7L, "http://localhost:9000/interview-agent/avatar/7/demo.png")).thenReturn(1);
+        when(storageService.uploadAvatar(eq(7L), any())).thenReturn("/avatar?object=avatar%2Fuser-7.png");
+        when(userMapper.updateAvatar(7L, "/avatar?object=avatar%2Fuser-7.png")).thenReturn(1);
 
-        String avatarUrl = service.uploadAvatar("alice", file);
+        String avatarUrl = userService.uploadAvatar("alice", file);
 
-        assertThat(avatarUrl).isEqualTo("http://localhost:9000/interview-agent/avatar/7/demo.png");
+        assertThat(avatarUrl).isEqualTo("/avatar?object=avatar%2Fuser-7.png");
         verify(storageService).uploadAvatar(7L, file);
-        verify(userMapper).updateAvatar(7L, "http://localhost:9000/interview-agent/avatar/7/demo.png");
+        verify(userMapper).updateAvatar(7L, "/avatar?object=avatar%2Fuser-7.png");
     }
 }

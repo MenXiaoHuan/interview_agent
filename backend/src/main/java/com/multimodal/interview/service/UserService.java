@@ -26,11 +26,6 @@ public interface UserService {
     User updateNickname(String username, String nickname);
 
     /**
-     * 更新用户头像
-     */
-    void updateAvatar(String username, String avatarUrl);
-
-    /**
      * 上传头像文件并更新用户头像 URL。
      *
      * @param username 当前用户名

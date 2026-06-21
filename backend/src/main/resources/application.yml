@@ -5,7 +5,7 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   web:
     resources:
-      static-locations: "${PLATFORM_STATIC_LOCATIONS:classpath:/static/,classpath:/public/,file:${app.file.root}/}"
+      static-locations: "${PLATFORM_STATIC_LOCATIONS:classpath:/static/,classpath:/public/}"
 
 mybatis:
   configuration:
@@ -14,16 +14,6 @@ mybatis:
   type-handlers-package: ${PLATFORM_MYBATIS_TYPE_HANDLERS_PACKAGE:com.multimodal.interview.util}
 
 app:
-  file:
-    root: ${PLATFORM_FILE_ROOT:/home/file}
-  storage:
-    type: ${PLATFORM_STORAGE_TYPE:minio}
-    minio:
-      endpoint: ${PLATFORM_MINIO_ENDPOINT:http://localhost:9000}
-      public-url: ${PLATFORM_MINIO_PUBLIC_URL:http://localhost:9000}
-      access-key: ${PLATFORM_MINIO_ACCESS_KEY:minioadmin}
-      secret-key: ${PLATFORM_MINIO_SECRET_KEY:minioadmin}
-      bucket: ${PLATFORM_MINIO_BUCKET:interview-agent}
   cors:
     allowed-origins: ${PLATFORM_CORS_ALLOWED_ORIGINS:https://localhost:5173}
   swagger:
@@ -32,3 +22,10 @@ app:
     capacity: ${PLATFORM_RATE_LIMIT_CAPACITY:10}
     refill-tokens: ${PLATFORM_RATE_LIMIT_REFILL_TOKENS:10}
     refill-seconds: ${PLATFORM_RATE_LIMIT_REFILL_SECONDS:1}
+
+storage:
+  minio:
+    endpoint: "${PLATFORM_MINIO_INTERNAL_ENDPOINT:${PLATFORM_MINIO_ENDPOINT:http://localhost:9000}}"
+    access-key: ${PLATFORM_MINIO_ACCESS_KEY:}
+    secret-key: ${PLATFORM_MINIO_SECRET_KEY:}
+    bucket: ${PLATFORM_STORAGE_BUCKET:qa-report}

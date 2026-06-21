@@ -10,11 +10,10 @@ import org.springframework.context.annotation.Configuration;
 public class MinioConfig {
 
     @Bean
-    public MinioClient minioClient(StorageProperties storageProperties) {
-        StorageProperties.Minio minio = storageProperties.getMinio();
+    public MinioClient minioClient(StorageProperties properties) {
         return MinioClient.builder()
-                .endpoint(minio.getEndpoint())
-                .credentials(minio.getAccessKey(), minio.getSecretKey())
+                .endpoint(properties.endpoint())
+                .credentials(properties.accessKey(), properties.secretKey())
                 .build();
     }
 }

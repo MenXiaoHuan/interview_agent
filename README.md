@@ -347,19 +347,17 @@ curl -k -X POST https://localhost:8442/api/resume/extract \
 
 ## 部署说明
 
-完整环境变量、Docker Compose、Swagger 与 CORS 部署说明见 [`docs/deployment.md`](./docs/deployment.md)。
-
 ### 本地开发部署
 
 1. 准备 MySQL、Redis
 2. 初始化数据库脚本
-3. 配置后端 `application.yml` 或环境变量
-4. 确认前端 `VITE_API_BASE_URL` 与后端端口一致
+3. 配置根目录 `.env`
+4. 确认前端代理目标与后端端口一致
 5. 启动后端
 6. 启动前端
 7. 浏览器信任本地 HTTPS 证书
 
-也可以使用 Docker Compose 启动 MySQL、Redis、MinIO、后端与前端。MinIO 用于存储上传头像，前端服务会通过 Compose 注入 `VITE_API_BASE_URL`：
+也可以使用 Docker Compose 启动 MySQL、Redis、MinIO、后端与前端：
 
 ```bash
 docker compose up

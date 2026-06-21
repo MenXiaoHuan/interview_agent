@@ -95,22 +95,6 @@ public class UserServiceImpl implements UserService {
         return userMapper.findById(user.getId());
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    @Transactional
-    public void updateAvatar(String username, String avatarUrl) {
-        User user = userMapper.findByUsername(username);
-        if (user == null) {
-            throw BusinessException.notFound("用户不存在");
-        }
-        int rows = userMapper.updateAvatar(user.getId(), avatarUrl);
-        if (rows != 1) {
-            throw BusinessException.internalError("更新头像失败");
-        }
-    }
-
     @Override
     @Transactional
     public String uploadAvatar(String username, MultipartFile file) {
