@@ -42,7 +42,7 @@ public class MinioStorageService implements StorageService {
                     .stream(file.getInputStream(), file.getSize(), -1)
                     .contentType(contentType)
                     .build());
-            return "/avatar?object=" + URLEncoder.encode(objectName, StandardCharsets.UTF_8);
+            return "/api/avatar?object=" + URLEncoder.encode(objectName, StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw BusinessException.internalError("上传头像到对象存储失败");
         }

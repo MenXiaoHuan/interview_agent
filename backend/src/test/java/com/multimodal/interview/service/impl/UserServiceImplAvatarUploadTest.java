@@ -39,13 +39,13 @@ class UserServiceImplAvatarUploadTest {
         );
 
         when(userMapper.findByUsername("alice")).thenReturn(user);
-        when(storageService.uploadAvatar(eq(7L), any())).thenReturn("/avatar?object=avatar%2Fuser-7.png");
-        when(userMapper.updateAvatar(7L, "/avatar?object=avatar%2Fuser-7.png")).thenReturn(1);
+        when(storageService.uploadAvatar(eq(7L), any())).thenReturn("/api/avatar?object=avatar%2Fuser-7.png");
+        when(userMapper.updateAvatar(7L, "/api/avatar?object=avatar%2Fuser-7.png")).thenReturn(1);
 
         String avatarUrl = userService.uploadAvatar("alice", file);
 
-        assertThat(avatarUrl).isEqualTo("/avatar?object=avatar%2Fuser-7.png");
+        assertThat(avatarUrl).isEqualTo("/api/avatar?object=avatar%2Fuser-7.png");
         verify(storageService).uploadAvatar(7L, file);
-        verify(userMapper).updateAvatar(7L, "/avatar?object=avatar%2Fuser-7.png");
+        verify(userMapper).updateAvatar(7L, "/api/avatar?object=avatar%2Fuser-7.png");
     }
 }

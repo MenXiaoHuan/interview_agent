@@ -103,7 +103,7 @@ public class UserController {
      * @param authentication 当前登录用户认证信息
      * @return 返回可访问的头像 URL
      */
-    @Operation(summary = "上传头像文件并更新用户头像", description = "上传图片文件，服务端保存到 MinIO 并返回后端代理 URL（/avatar）")
+    @Operation(summary = "上传头像文件并更新用户头像", description = "上传图片文件，服务端保存到 MinIO 并返回后端代理 URL（/api/avatar）")
     @PostMapping(value = "/avatar/upload", consumes = "multipart/form-data")
     public ApiResponse<Map<String, Object>> uploadAvatarFile(
             @RequestPart("file") MultipartFile file,

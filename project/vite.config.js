@@ -61,11 +61,6 @@ export default defineConfig(({ mode }) => {
           changeOrigin: false,
           secure: false
         },
-        '/avatar': {
-          target: apiProxyTarget,
-          changeOrigin: false,
-          secure: false
-        },
         '/scenario': {
           target: apiProxyTarget,
           changeOrigin: false,

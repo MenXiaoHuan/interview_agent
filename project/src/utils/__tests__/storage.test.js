@@ -9,10 +9,32 @@ import {
   setUserInfo
 } from '../storage'
 
+function createMemoryStorage() {
+  const store = new Map()
+  return {
+    getItem: (key) => store.get(String(key)) ?? null,
+    setItem: (key, value) => store.set(String(key), String(value)),
+    removeItem: (key) => store.delete(String(key)),
+    clear: () => store.clear()
+  }
+}
+
 describe('storage helpers', () => {
   beforeEach(() => {
-    window.sessionStorage.clear()
-    window.localStorage.clear()
+    const sessionStorage = createMemoryStorage()
+    const localStorage = createMemoryStorage()
+    Object.defineProperty(window, 'sessionStorage', {
+      value: sessionStorage,
+      configurable: true
+    })
+    Object.defineProperty(window, 'localStorage', {
+      value: localStorage,
+      configurable: true
+    })
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: localStorage,
+      configurable: true
+    })
   })
 
   it('stores token in session storage through typed helpers', () => {

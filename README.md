@@ -105,7 +105,7 @@ flowchart LR
 - `/api/feedback/*`：用户反馈
 - `/api/scenario-question/*`、`/scenario/*`：场景题与场景评测历史
 - `/api/speech/*`、`/api/transcription/*`：语音合成与音频转写
-- `/avatar`：后端代理读取 MinIO 中的头像对象
+- `/api/avatar`：后端代理读取 MinIO 中的头像对象
 
 另外，后端 `backend/src/main/resources/skills/` 下已经包含多个内置技能定义，例如：
 
@@ -252,7 +252,7 @@ Frontend - Runtime
 - MySQL：Compose 内部 `mysql:3306/interview_agent`，宿主机端口 `3307`
 - Redis：Compose 内部 `redis:6379`
 - MinIO：API 端口 `9000`，控制台端口 `9001`
-- 头像存储：上传到 MinIO，数据库保存后端代理 URL `/avatar?object=...`
+- 头像存储：上传到 MinIO，数据库保存后端代理 URL `/api/avatar?object=...`
 - AI：DeepSeek 与讯飞相关 Key 通过 `.env` 注入
 
 后端仍保留以下配置文件：
@@ -267,7 +267,7 @@ backend/src/main/resources/application-dev.yml
 推荐使用 Docker Compose 启动完整本地环境：
 
 ```bash
-docker compose up
+docker compose up --build
 ```
 
 Compose 会启动：
@@ -278,12 +278,23 @@ Compose 会启动：
 - Spring Boot 后端
 - uni-app H5 前端
 
+Docker 镜像与生产编排说明见 [`docs/docker.md`](docs/docker.md)。
+
 默认访问地址：
 
 - 前端：`https://localhost:5172`
-- 后端：`http://localhost:8442`
+- 后端：`https://localhost:8442`
 - MinIO API：`http://localhost:9000`
 - MinIO Console：`http://localhost:9001`
+
+### 统一日志中心
+
+项目通过 `Loki + Promtail + Grafana` 管理 Docker 容器日志。默认端口由根目录 `.env` 控制：
+
+- Loki: `http://localhost:3100`
+- Grafana: `http://localhost:3000`
+
+后端响应会返回 `X-Trace-Id`，后端日志会包含 `traceId=`，可在 Grafana 中按 trace id 搜索单次请求链路。详细使用方式见 [docs/logging.md](docs/logging.md)。
 
 ### 5. 手动启动后端
 
@@ -327,7 +338,7 @@ npm run dev:h5
 
 - 后端开发默认端口：`8442`
 - 前端开发默认端口：`5172`
-- 前端默认通过 Vite proxy 转发 `/api`、`/avatar`、`/scenario`
+- 前端默认通过 Vite proxy 转发 `/api`、`/scenario`
 - 如需连接其他后端地址，请在根目录 `.env` 中设置 `PLATFORM_WEB_API_PROXY_TARGET`
 
 ### 8. HTTPS 说明
@@ -413,7 +424,7 @@ curl -k -X POST https://localhost:8442/api/user/avatar/upload \
 说明：
 
 - 后端会上传文件到 MinIO
-- 数据库保存后端代理 URL，例如 `/avatar?object=avatar%2Fuser-1%2Fxxx.png`
+- 数据库保存后端代理 URL，例如 `/api/avatar?object=avatar%2Fuser-1%2Fxxx.png`
 - 前端展示头像时访问该代理 URL，由后端读取 MinIO 并返回图片流
 
 ## 部署说明
@@ -431,15 +442,17 @@ curl -k -X POST https://localhost:8442/api/user/avatar/upload \
 也可以使用 Docker Compose 启动 MySQL、Redis、MinIO、后端与前端：
 
 ```bash
-docker compose up
+docker compose up --build
 ```
+
+生产镜像和生产 Compose 说明见 [`docs/docker.md`](docs/docker.md)。
 
 ### 服务器部署建议
 
 #### 后端
 
 - 使用环境变量覆盖数据库、Redis、JWT、AI Key、证书路径等配置
-- 通过 `java -jar` 或 `./mvnw spring-boot:run` 启动
+- 通过 `java -jar` 启动，或使用 `docker-compose.prod.yml` 构建生产镜像
 - 建议在 `systemd`、`supervisor` 或容器平台中托管进程
 
 示例：
@@ -455,6 +468,7 @@ java -jar target/interview-agent-java-0.0.1-SNAPSHOT.jar
 - 先执行构建
 - 将构建产物部署到静态服务器或 Nginx
 - 若只运行 H5，可将接口地址切到正式后端域名
+- 也可以使用 `project/Dockerfile` 构建 nginx 静态资源镜像
 
 示例：
 
@@ -468,7 +482,7 @@ npm run build:h5
 
 - 由 Nginx 统一处理 HTTPS 证书与域名
 - `/api/` 反代到 Spring Boot 服务
-- `/avatar` 反代到 Spring Boot 服务，由后端代理读取 MinIO 头像
+- `/api/avatar` 通过 `/api/` 反代到 Spring Boot 服务，由后端代理读取 MinIO 头像
 - 前端静态资源由 Nginx 直接托管
 
 ## 开发注意事项
