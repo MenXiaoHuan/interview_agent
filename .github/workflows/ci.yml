@@ -7,14 +7,35 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
       - name: Backend tests
         working-directory: backend
+        env:
+          SPRING_DATA_REDIS_HOST: localhost
+          SPRING_DATA_REDIS_PORT: '6379'
+          SPRING_DATA_REDIS_DATABASE: '0'
+          PLATFORM_MINIO_ENDPOINT: http://localhost:9000
+          PLATFORM_MINIO_INTERNAL_ENDPOINT: http://localhost:9000
+          PLATFORM_MINIO_ACCESS_KEY: ci-minio-access-key
+          PLATFORM_MINIO_SECRET_KEY: ci-minio-secret-key
+          PLATFORM_STORAGE_BUCKET: interview-agent
         run: ./mvnw test
 
   frontend:
