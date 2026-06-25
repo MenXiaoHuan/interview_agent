@@ -501,4 +501,4 @@ npm run build:h5
 
 ## License
 
-当前仓库尚未声明开源许可证。如计划公开发布，建议补充 `LICENSE` 文件并明确使用条款。
+本项目使用 MIT License，详见 [`LICENSE`](LICENSE)。
