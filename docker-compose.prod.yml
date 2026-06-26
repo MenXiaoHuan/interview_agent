@@ -12,9 +12,11 @@ services:
 
   redis:
     image: redis:7
-    command: redis-server --requirepass ${PLATFORM_REDIS_PASSWORD}
+    command: redis-server --requirepass ${PLATFORM_REDIS_PASSWORD} --appendonly yes
     ports:
       - "${PLATFORM_REDIS_HOST_PORT}:6379"
+    volumes:
+      - redis-data:/data
 
   minio:
     image: minio/minio:latest
@@ -91,3 +93,4 @@ volumes:
   loki-data:
   mysql-data:
   minio-data:
+  redis-data:
