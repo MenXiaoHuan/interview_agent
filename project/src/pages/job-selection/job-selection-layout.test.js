@@ -13,6 +13,8 @@ describe("job selection page layout", () => {
     expect(source).toContain("job-selection-panel");
     expect(source).toContain("job-selection-panel-body");
     expect(source).not.toContain("cosmic-selection-card");
+    expect(source).not.toContain('v-if="isLoading" class="loading-inline"');
+    expect(source).toContain(':class="{ visible: isLoading }"');
     expect(source).toContain("岗位选择");
     expect(source).toContain("handleStartInterview");
   });

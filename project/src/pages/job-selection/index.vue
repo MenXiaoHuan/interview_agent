@@ -119,7 +119,9 @@
             />
           </div>
 
-          <div v-if="isLoading" class="loading-inline">加载中...</div>
+          <div class="loading-inline" :class="{ visible: isLoading }">
+            加载中...
+          </div>
 
           <button @click="handleStartInterview" class="job-selection-start-btn">
             <span>开始面试</span>
@@ -800,13 +802,13 @@ $shadows-large: multiple-box-shadow(150);
 
 .job-selection-panel-header {
   width: min(420px, 100%);
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 
 .job-selection-panel-body {
   width: min(420px, 100%);
-  padding: 24px 20px 20px;
-  border-radius: 20px;
+  padding: 28px 24px 22px;
+  border-radius: 22px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(112, 143, 186, 0.22);
   box-shadow: 0 10px 32px rgba(2, 8, 20, 0.18);
@@ -815,46 +817,57 @@ $shadows-large: multiple-box-shadow(150);
 }
 
 .job-selection-panel-eyebrow {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #00e5ff;
   letter-spacing: 0.04em;
+  opacity: 0.9;
 }
 
 .job-selection-panel-title {
-  margin: 12px 0 10px;
-  font-size: 28px;
+  margin: 8px 0 8px;
+  font-size: 26px;
   color: #f5f9ff;
   line-height: 1.2;
+  letter-spacing: 0.01em;
 }
 
 .job-selection-panel-subtitle {
-  font-size: 13px;
-  line-height: 1.8;
-  color: #9fb4d9;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #8ea8cf;
 }
 
 .job-selection-form-group {
   width: 100%;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   display: flex;
   flex-direction: column;
 }
 
 .job-selection-form-group label {
   display: block;
-  margin-bottom: 8px;
-  font-size: 13px;
-  color: #d7e7ff;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: #9fb4d9;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
 }
 
 .loading-inline {
   width: 100%;
-  margin: 4px 0 12px;
+  min-height: 18px;
+  margin: 0 0 14px;
   color: #a8c6ff;
   font-size: 13px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease;
+}
+
+.loading-inline.visible {
+  opacity: 1;
+  visibility: visible;
 }
 
 .job-selection-start-btn {
@@ -1136,6 +1149,10 @@ $shadows-large: multiple-box-shadow(150);
   .job-selection-panel {
     padding: 40px 32px 42px;
   }
+
+  .job-selection-panel-body {
+    padding: 24px 20px 20px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1149,6 +1166,11 @@ $shadows-large: multiple-box-shadow(150);
 
   .job-selection-panel-title {
     font-size: 26px;
+  }
+
+  .job-selection-panel-body {
+    padding: 20px 16px 18px;
+    border-radius: 18px;
   }
 }
 </style>
