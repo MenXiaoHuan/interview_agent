@@ -1141,9 +1141,11 @@ $shadows-large: multiple-box-shadow(150);
   position: relative;
   z-index: 3;
   width: min(100%, 960px);
+  min-height: calc(100vh - 56px);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 16px;
 }
 
@@ -1381,6 +1383,8 @@ $shadows-large: multiple-box-shadow(150);
     padding: 92px 14px 96px;
   }
   .cosmic-content-container {
+    min-height: auto;
+    justify-content: flex-start;
     gap: 14px;
   }
   .quick-actions { grid-template-columns: 1fr; }

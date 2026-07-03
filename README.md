@@ -34,7 +34,7 @@
 
 ### 首页
 
-![首页](./project/src/static/funtion_show/homepage_female.jpg)
+![首页](./project/src/static/funtion_show/homepage.jpg)
 
 ### 岗位选择
 
@@ -42,7 +42,7 @@
 
 ### AI 面试
 
-![AI 面试](./project/src/static/funtion_show/interview_ai.jpg)
+![功能展示](./project/src/static/funtion_show/homepage.jpg)
 
 ### 聊天大厅
 

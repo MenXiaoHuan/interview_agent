@@ -60,12 +60,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import featureChatAi from '@/static/funtion_show/chat_ai.jpg'
-import featureHomepageFemale from '@/static/funtion_show/homepage_female.jpg'
-import featureHomepageMale from '@/static/funtion_show/homepage_male.jpg'
-import featureInterviewAi from '@/static/funtion_show/interview_ai.jpg'
-import featureJobSelectionFemale from '@/static/funtion_show/job_selection_female.jpg'
-import featureJobSelectionMale from '@/static/funtion_show/job_selection_male.jpg'
+import { SHOWCASE_IMAGE_URLS } from '@/utils/static-showcase-images'
 
 const shuffleSlides = (items) => {
   const list = [...items]
@@ -76,14 +71,7 @@ const shuffleSlides = (items) => {
   return list
 }
 
-const slides = shuffleSlides([
-  featureChatAi,
-  featureHomepageFemale,
-  featureHomepageMale,
-  featureInterviewAi,
-  featureJobSelectionFemale,
-  featureJobSelectionMale
-])
+const slides = shuffleSlides(SHOWCASE_IMAGE_URLS)
 const slideIndex = ref(0)
 const sliderReady = ref(false)
 let slideTimer = null

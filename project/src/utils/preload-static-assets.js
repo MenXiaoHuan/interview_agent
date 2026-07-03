@@ -1,22 +1,12 @@
 // Preload frequently used static images early to avoid "late pop-in" on first page enter.
 // Works for H5 (browser Image) and falls back to uni.getImageInfo where available.
 
-import featureChatAi from '@/static/funtion_show/chat_ai.jpg';
-import featureHomepageFemale from '@/static/funtion_show/homepage_female.jpg';
-import featureHomepageMale from '@/static/funtion_show/homepage_male.jpg';
-import featureInterviewAi from '@/static/funtion_show/interview_ai.jpg';
-import featureJobSelectionFemale from '@/static/funtion_show/job_selection_female.jpg';
-import featureJobSelectionMale from '@/static/funtion_show/job_selection_male.jpg';
+import { SHOWCASE_IMAGE_URLS } from "@/utils/static-showcase-images";
 
 const DEFAULT_STATIC_IMAGE_URLS = [
-  '/static/pp_male.png',
-  '/static/pp_female.png',
-  featureChatAi,
-  featureHomepageFemale,
-  featureHomepageMale,
-  featureInterviewAi,
-  featureJobSelectionFemale,
-  featureJobSelectionMale
+  "/static/pp_male.png",
+  "/static/pp_female.png",
+  ...SHOWCASE_IMAGE_URLS,
 ];
 
 export function preloadStaticImages(urls = DEFAULT_STATIC_IMAGE_URLS) {
