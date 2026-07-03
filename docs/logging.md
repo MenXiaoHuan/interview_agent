@@ -8,6 +8,42 @@
 - `promtail`: 读取 Docker 容器 stdout/stderr 日志并推送到 Loki。
 - `grafana`: 提供日志查询 UI，默认访问 `http://localhost:${PLATFORM_GRAFANA_HOST_PORT}`。
 
+## 日志流转
+
+```mermaid
+flowchart LR
+    Web[web container] -. stdout / stderr .-> DockerLogs[Docker container logs]
+    Server[server container] -. stdout / stderr .-> DockerLogs
+    MySQL[mysql container] -. stdout / stderr .-> DockerLogs
+    Redis[redis container] -. stdout / stderr .-> DockerLogs
+    MinIO[minio container] -. stdout / stderr .-> DockerLogs
+    DockerLogs --> Promtail[Promtail]
+    Promtail -->|push| Loki[(Loki)]
+    Grafana[Grafana] -->|query| Loki
+```
+
+后端应用日志直接输出到容器 stdout，Promtail 统一读取 Docker 容器日志并推送到 Loki。Grafana 不保存日志本身，它通过 Loki datasource 查询日志。
+
+## Trace Id 链路
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Web as web
+    participant Server as server
+    participant Loki
+    participant Grafana
+
+    Browser->>Web: 请求页面或 /api
+    Web->>Server: 转发 /api 请求
+    Server->>Server: TraceIdFilter 生成/读取 X-Trace-Id
+    Server->>Server: RequestLoggingFilter 输出访问日志
+    Server-->>Web: 响应头返回 X-Trace-Id
+    Web-->>Browser: 返回响应
+    Server-->>Loki: 日志经 Promtail 推送
+    Grafana->>Loki: 用 traceId 查询请求日志
+```
+
 ## 启动
 
 ```bash

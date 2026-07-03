@@ -2,6 +2,27 @@
 
 本文说明本项目 Dockerfile、Dockerfile.dev、.dockerignore 与 Compose 的职责划分。
 
+## 职责关系
+
+```mermaid
+flowchart TB
+    Compose[docker-compose.yml / docker-compose.prod.yml<br/>编排多容器运行] --> BackendImage[backend Dockerfile<br/>构建后端镜像]
+    Compose --> FrontendImage[project Dockerfile<br/>构建前端镜像]
+    Compose --> Middleware[MySQL / Redis / MinIO / Loki / Grafana<br/>运行中间件]
+    Env[.env<br/>端口 / 密码 / 服务地址] --> Compose
+    BackendIgnore[backend/.dockerignore<br/>过滤后端构建上下文] --> BackendImage
+    FrontendIgnore[project/.dockerignore<br/>过滤前端构建上下文] --> FrontendImage
+    Volumes[Docker volumes<br/>持久化数据和依赖缓存] --> Compose
+```
+
+简单理解：
+
+- Dockerfile 负责“一个服务如何构建镜像”。
+- Docker Compose 负责“多个服务如何一起运行”。
+- `.dockerignore` 负责“哪些文件不要进入镜像构建上下文”。
+- `.env` 负责“运行时变量从哪里来”。
+- volumes 负责“容器重建后哪些数据要保留”。
+
 ## 文件职责
 
 - `backend/Dockerfile.dev`：后端本地开发镜像，默认执行 `./mvnw spring-boot:run`。
@@ -46,6 +67,8 @@ docker compose up --build
 - 后端：`https://localhost:${PLATFORM_SERVER_HOST_PORT}`
 - MinIO Console：`http://localhost:${PLATFORM_MINIO_CONSOLE_HOST_PORT}`
 
+本地开发的 `web` 服务由 Vite/uni-app dev server 提供，当前默认启用 HTTPS。
+
 ## 生产镜像启动
 
 ```bash
@@ -58,6 +81,29 @@ docker compose -f docker-compose.prod.yml up --build -d
 - 前端镜像在构建阶段执行 `npm run build:h5`，运行阶段使用 nginx 托管 H5 静态资源。
 - 生产编排不挂载前后端源码。
 - nginx 会把 `/api`、`/scenario` 代理到 `PLATFORM_WEB_API_PROXY_TARGET`，头像读取接口统一走 `/api/avatar`。
+
+生产 `web` 容器内部监听 HTTP `80`，Compose 将宿主机 `PLATFORM_WEB_HOST_PORT` 映射到容器 `80`。如果需要公网 HTTPS，建议在 Compose 外层使用 Nginx、Caddy、云负载均衡或 Ingress 做 TLS 终止。
+
+## 数据卷
+
+```mermaid
+flowchart LR
+    MySQL[mysql] --> MySQLData[(mysql-data)]
+    Redis[redis] --> RedisData[(redis-data)]
+    MinIO[minio] --> MinIOData[(minio-data)]
+    Loki[loki] --> LokiData[(loki-data)]
+    Grafana[grafana] --> GrafanaData[(grafana-data)]
+    ServerDev[server dev] --> MavenRepo[(backend-maven-repo)]
+    WebDev[web dev] --> NodeModules[(web-node-modules)]
+```
+
+- `mysql-data`：保存 MySQL 业务数据。
+- `redis-data`：保存 Redis AOF 持久化文件。
+- `minio-data`：保存头像等对象文件。
+- `loki-data`：保存日志数据。
+- `grafana-data`：保存 Grafana 状态。
+- `backend-maven-repo`：开发环境 Maven 依赖缓存。
+- `web-node-modules`：开发环境前端依赖缓存。
 
 ## 停止服务
 
