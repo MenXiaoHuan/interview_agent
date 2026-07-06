@@ -2395,4 +2395,48 @@ $shadows-large: multiple-box-shadow(150);
 .eye-care .timer i {
   color: #2e7d32;
 }
+
+/* 护眼模式最终校准：对齐 ai-hall 的深绿宇宙毛玻璃风格 */
+.ai-questions-container.eye-care {
+  background: linear-gradient(135deg, #1c2a1f 0%, #2a3c2e 100%) !important;
+}
+
+.ai-questions-container.eye-care #stars,
+.ai-questions-container.eye-care #stars2,
+.ai-questions-container.eye-care #stars3 {
+  opacity: 0.42;
+  filter: sepia(0.42) hue-rotate(58deg) saturate(0.76);
+}
+
+.ai-questions-container.eye-care .content-wrapper,
+.ai-questions-container.eye-care .question-content,
+.ai-questions-container.eye-care .question-nav,
+.ai-questions-container.eye-care .nav-item,
+.ai-questions-container.eye-care .option-item,
+.ai-questions-container.eye-care .scenario-textarea,
+.ai-questions-container.eye-care .blank-input,
+.ai-questions-container.eye-care .code-editor,
+.ai-questions-container.eye-care .completion-card {
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(144, 198, 149, 0.24);
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.ai-questions-container.eye-care .question-text,
+.ai-questions-container.eye-care .question-number,
+.ai-questions-container.eye-care .option-text,
+.ai-questions-container.eye-care .completion-header h2,
+.ai-questions-container.eye-care .analysis-title {
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.ai-questions-container.eye-care .question-type,
+.ai-questions-container.eye-care .answer-length-hint,
+.ai-questions-container.eye-care .analysis-text,
+.ai-questions-container.eye-care .timer {
+  color: rgba(255, 255, 255, 0.76);
+}
 </style>

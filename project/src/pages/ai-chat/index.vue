@@ -5356,14 +5356,14 @@ $shadows-large: multiple-box-shadow(150);
 
 .threshold-settings-panel {
   position: fixed;
-  top: 96px;
-  right: 28px;
-  width: min(440px, calc(100vw - 48px));
-  max-height: min(620px, calc(100vh - 120px));
+  top: 86px;
+  right: 24px;
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(520px, calc(100vh - 112px));
   overflow-y: auto;
-  padding: 22px;
+  padding: 18px;
   border: 1px solid rgba(186, 230, 253, 0.30);
-  border-radius: 28px;
+  border-radius: 24px;
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.88), rgba(8, 47, 73, 0.78));
   box-shadow: 0 32px 88px rgba(2, 8, 23, 0.56), inset 0 1px 0 rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(22px) saturate(150%);
@@ -5371,16 +5371,29 @@ $shadows-large: multiple-box-shadow(150);
   z-index: 6000;
 }
 
+.threshold-settings-panel::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  right: 42px;
+  width: 14px;
+  height: 14px;
+  border-left: 1px solid rgba(186, 230, 253, 0.30);
+  border-top: 1px solid rgba(186, 230, 253, 0.30);
+  background: rgba(12, 38, 57, 0.92);
+  transform: rotate(45deg);
+}
+
 .threshold-settings-header {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
+  gap: 4px;
+  margin-bottom: 12px;
 }
 
 .threshold-settings-header strong {
   color: #ffffff;
-  font-size: 20px;
+  font-size: 18px;
   letter-spacing: 0.04em;
   text-shadow: 0 0 20px rgba(125, 211, 252, 0.16);
 }
@@ -5393,8 +5406,8 @@ $shadows-large: multiple-box-shadow(150);
 .threshold-stage-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .threshold-field {
@@ -5410,15 +5423,15 @@ $shadows-large: multiple-box-shadow(150);
 }
 
 .threshold-field input {
-  width: 112px;
-  height: 42px;
+  width: 92px;
+  height: 36px;
   border: 1px solid rgba(186, 230, 253, 0.24);
-  border-radius: 16px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.10);
   color: #ffffff;
-  padding: 0 14px;
+  padding: 0 12px;
   outline: none;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
@@ -5426,18 +5439,18 @@ $shadows-large: multiple-box-shadow(150);
 .threshold-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .threshold-reset-btn,
 .threshold-save-btn {
-  min-width: 108px;
-  height: 42px;
+  min-width: 96px;
+  height: 38px;
   border-radius: 999px;
-  padding: 0 18px;
+  padding: 0 16px;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.04em;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
@@ -5668,16 +5681,17 @@ $shadows-large: multiple-box-shadow(150);
 .eye-care .confirm-icon-neutral { background: rgba(127, 176, 105, 0.18); color: #5d8156; border-color: rgba(144, 170, 131, 0.34); }
 .eye-care .confirm-close-btn { background: rgba(255, 255, 255, 0.36); color: rgba(47, 53, 45, 0.72); border-color: rgba(144, 170, 131, 0.34); }
 .eye-care .confirm-close-btn:hover { background: rgba(255, 255, 255, 0.52); color: #2f352d; }
-.eye-care .threshold-settings-btn { background: linear-gradient(135deg, rgba(255, 255, 255, 0.48), rgba(226, 236, 216, 0.34)); color: #4d6848; border-color: rgba(144, 170, 131, 0.34); box-shadow: 0 16px 36px rgba(47, 53, 45, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.62); }
-.eye-care .threshold-island-orb { background: rgba(127, 176, 105, 0.18); color: #5d8156; box-shadow: 0 0 0 6px rgba(127, 176, 105, 0.08), 0 0 18px rgba(127, 176, 105, 0.32); }
-.eye-care .threshold-island-title { color: #2f352d; background: none; -webkit-text-fill-color: #2f352d; text-shadow: none; }
-.eye-care .threshold-settings-panel { background: linear-gradient(135deg, rgba(245, 247, 238, 0.92), rgba(226, 236, 216, 0.78)); border-color: rgba(144, 170, 131, 0.32); box-shadow: 0 28px 70px rgba(47, 53, 45, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.62); }
-.eye-care .threshold-settings-header strong { color: #2f352d; }
+.eye-care .threshold-settings-btn { background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(127, 176, 105, 0.10)); color: #ffffff; border-color: rgba(144, 198, 149, 0.28); box-shadow: 0 16px 36px rgba(18, 32, 22, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.14); }
+.eye-care .threshold-island-orb { background: rgba(144, 198, 149, 0.18); color: #ffffff; box-shadow: 0 0 0 6px rgba(144, 198, 149, 0.08), 0 0 18px rgba(144, 198, 149, 0.32); }
+.eye-care .threshold-island-title { color: #ffffff; background: none; -webkit-text-fill-color: #ffffff; text-shadow: 0 0 18px rgba(144, 198, 149, 0.26); }
+.eye-care .threshold-settings-panel { background: linear-gradient(135deg, rgba(28, 42, 31, 0.92), rgba(42, 60, 46, 0.82)); border-color: rgba(144, 198, 149, 0.28); box-shadow: 0 28px 70px rgba(18, 32, 22, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.14); }
+.eye-care .threshold-settings-panel::before { background: rgba(33, 50, 36, 0.94); border-color: rgba(144, 198, 149, 0.28); }
+.eye-care .threshold-settings-header strong { color: #ffffff; }
 .eye-care .threshold-settings-header span,
-.eye-care .threshold-field { color: rgba(47, 53, 45, 0.66); }
-.eye-care .threshold-field input { background: rgba(255, 255, 255, 0.42); color: #2f352d; border-color: rgba(144, 170, 131, 0.34); }
-.eye-care .threshold-reset-btn { background: rgba(255, 255, 255, 0.42); color: #4d6848; border-color: rgba(144, 170, 131, 0.34); }
-.eye-care .threshold-save-btn { background: linear-gradient(135deg, #7fb069, #5d8156); border-color: rgba(144, 170, 131, 0.34); }
+.eye-care .threshold-field { color: rgba(255, 255, 255, 0.74); }
+.eye-care .threshold-field input { background: rgba(255, 255, 255, 0.10); color: #ffffff; border-color: rgba(144, 198, 149, 0.28); }
+.eye-care .threshold-reset-btn { background: rgba(255, 255, 255, 0.10); color: #ffffff; border-color: rgba(144, 198, 149, 0.28); }
+.eye-care .threshold-save-btn { background: linear-gradient(135deg, #7fb069, #5d8156); color: #ffffff; border-color: rgba(144, 198, 149, 0.34); }
 
 /* 响应式设计 */
 @media (max-width: 1200px) {
@@ -5986,6 +6000,179 @@ $shadows-large: multiple-box-shadow(150);
 
 .eye-care .error-message.service-unavailable .retry-btn:hover {
   background: rgba(255, 159, 67, 0.08);
+}
+
+/* 护眼模式最终校准：对齐 ai-hall 的深绿宇宙毛玻璃风格 */
+.ai-interview-container.dedicated-page.eye-care {
+  background: linear-gradient(135deg, #1c2a1f 0%, #2a3c2e 100%);
+}
+
+.ai-interview-container.dedicated-page.eye-care #stars,
+.ai-interview-container.dedicated-page.eye-care #stars2,
+.ai-interview-container.dedicated-page.eye-care #stars3 {
+  opacity: 0.42;
+  filter: sepia(0.42) hue-rotate(58deg) saturate(0.76);
+}
+
+.ai-interview-container.dedicated-page.eye-care .page-transition-overlay {
+  background: radial-gradient(circle at 50% 50%, rgba(127,176,105,0.18), rgba(0,0,0,0.40));
+}
+
+.ai-interview-container.dedicated-page.eye-care .ai-chat-container {
+  background: transparent;
+  border-color: rgba(144, 198, 149, 0.18);
+  box-shadow: none;
+}
+
+.ai-interview-container.dedicated-page.eye-care .chat-sidebar,
+.ai-interview-container.dedicated-page.eye-care .chat-header,
+.ai-interview-container.dedicated-page.eye-care .input-wrapper,
+.ai-interview-container.dedicated-page.eye-care .recommended-action-card {
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(144, 198, 149, 0.24);
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.ai-interview-container.dedicated-page.eye-care .chat-sidebar {
+  color: #ffffff;
+}
+
+.ai-interview-container.dedicated-page.eye-care .sidebar-brand,
+.ai-interview-container.dedicated-page.eye-care .sidebar-primary-action,
+.ai-interview-container.dedicated-page.eye-care .session-title,
+.ai-interview-container.dedicated-page.eye-care .recommended-action-title,
+.ai-interview-container.dedicated-page.eye-care .recommended-action-btn {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.ai-interview-container.dedicated-page.eye-care .sidebar-section-label,
+.ai-interview-container.dedicated-page.eye-care .chat-session-name,
+.ai-interview-container.dedicated-page.eye-care .recommended-action-desc,
+.ai-interview-container.dedicated-page.eye-care .message-input::placeholder {
+  color: rgba(219, 232, 217, 0.64);
+}
+
+.ai-interview-container.dedicated-page.eye-care .sidebar-toggle-btn,
+.ai-interview-container.dedicated-page.eye-care .sidebar-icon-btn,
+.ai-interview-container.dedicated-page.eye-care .chat-back-btn,
+.ai-interview-container.dedicated-page.eye-care .session-delete-btn,
+.ai-interview-container.dedicated-page.eye-care .action-btn,
+.ai-interview-container.dedicated-page.eye-care .custom-delete-icon {
+  color: rgba(219, 232, 217, 0.78);
+}
+
+.ai-interview-container.dedicated-page.eye-care .sidebar-toggle-btn:hover,
+.ai-interview-container.dedicated-page.eye-care .sidebar-icon-btn:hover,
+.ai-interview-container.dedicated-page.eye-care .chat-back-btn:hover {
+  color: rgba(219, 232, 217, 0.78);
+  background: transparent;
+}
+
+.ai-interview-container.dedicated-page.eye-care .sidebar-primary-action,
+.ai-interview-container.dedicated-page.eye-care .recommended-action-btn,
+.ai-interview-container.dedicated-page.eye-care .quick-btn {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(144, 198, 149, 0.10));
+  border: 1px solid rgba(144, 198, 149, 0.24);
+  box-shadow: none;
+}
+
+.ai-interview-container.dedicated-page.eye-care .sidebar-primary-action:hover,
+.ai-interview-container.dedicated-page.eye-care .session-item:hover,
+.ai-interview-container.dedicated-page.eye-care .session-item.active,
+.ai-interview-container.dedicated-page.eye-care .recommended-action-btn:hover,
+.ai-interview-container.dedicated-page.eye-care .quick-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(144, 198, 149, 0.36);
+  box-shadow: none;
+}
+
+.ai-interview-container.dedicated-page.eye-care .session-item {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(144, 198, 149, 0.18);
+  box-shadow: none;
+}
+
+.ai-interview-container.dedicated-page.eye-care .chat-main,
+.ai-interview-container.dedicated-page.eye-care .chat-home-panel,
+.ai-interview-container.dedicated-page.eye-care .chat-messages,
+.ai-interview-container.dedicated-page.eye-care .chat-input {
+  background: transparent;
+}
+
+.ai-interview-container.dedicated-page.eye-care .chat-home-title,
+.ai-interview-container.dedicated-page.eye-care .welcome-stream-text {
+  color: rgba(219, 232, 217, 0.92);
+  text-shadow: 0 14px 36px rgba(18, 32, 22, 0.38);
+}
+
+.ai-interview-container.dedicated-page.eye-care .message.user .message-bubble {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(144, 198, 149, 0.28);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: 0 12px 28px rgba(18, 32, 22, 0.18);
+}
+
+.ai-interview-container.dedicated-page.eye-care .message.ai .message-bubble {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.ai-interview-container.dedicated-page.eye-care .message-content,
+.ai-interview-container.dedicated-page.eye-care .message.user .message-content,
+.ai-interview-container.dedicated-page.eye-care .message.ai .message-content {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.ai-interview-container.dedicated-page.eye-care .message.ai .message-time,
+.ai-interview-container.dedicated-page.eye-care .message.user .message-time {
+  color: rgba(219, 232, 217, 0.56);
+}
+
+.ai-interview-container.dedicated-page.eye-care .message-content a,
+.ai-interview-container.dedicated-page.eye-care .message.user .message-content a {
+  color: #dbe8d9;
+}
+
+.ai-interview-container.dedicated-page.eye-care .message-content :deep(code) {
+  background: rgba(144, 198, 149, 0.14);
+  color: #edf7ea;
+}
+
+.ai-interview-container.dedicated-page.eye-care .message-content :deep(hr) {
+  border-top-color: rgba(144, 198, 149, 0.28);
+}
+
+.ai-interview-container.dedicated-page.eye-care .message.ai .message-content.streaming::after,
+.ai-interview-container.dedicated-page.eye-care .welcome-stream-text::after {
+  background: rgba(219, 232, 217, 0.82);
+}
+
+.ai-interview-container.dedicated-page.eye-care .input-wrapper:focus-within {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(144, 198, 149, 0.44);
+  box-shadow: 0 0 0 3px rgba(127, 176, 105, 0.14);
+}
+
+.ai-interview-container.dedicated-page.eye-care .message-input,
+.ai-interview-container.dedicated-page.eye-care .message-input:focus {
+  color: #ffffff;
+}
+
+.ai-interview-container.dedicated-page.eye-care .send-btn,
+.ai-interview-container.dedicated-page.eye-care .send-btn.active:hover {
+  background: linear-gradient(135deg, rgba(127, 176, 105, 0.92), rgba(93, 129, 86, 0.86));
+  box-shadow: 0 8px 20px rgba(93, 129, 86, 0.22);
+  color: #ffffff !important;
+}
+
+.ai-interview-container.dedicated-page.eye-care .send-btn:disabled {
+  background: rgba(144, 198, 149, 0.26);
+  color: rgba(255, 255, 255, 0.72) !important;
+  box-shadow: none;
 }
 
 </style>

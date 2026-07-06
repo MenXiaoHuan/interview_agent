@@ -100,6 +100,18 @@ describe("ai chat page layout", () => {
     expect(source).toContain(".eye-care .chat-back-btn:hover {\n  color: #486244;");
   });
 
+  it("aligns eye-care mode with the ai-hall dark green glass theme", () => {
+    expect(source).toContain(".ai-interview-container.dedicated-page.eye-care {\n  background: linear-gradient(135deg, #1c2a1f 0%, #2a3c2e 100%);");
+    expect(source).toContain(".ai-interview-container.dedicated-page.eye-care #stars,\n.ai-interview-container.dedicated-page.eye-care #stars2,\n.ai-interview-container.dedicated-page.eye-care #stars3 {");
+    expect(source).toContain("opacity: 0.42;");
+    expect(source).toContain(".ai-interview-container.dedicated-page.eye-care .chat-sidebar,\n.ai-interview-container.dedicated-page.eye-care .chat-header,\n.ai-interview-container.dedicated-page.eye-care .input-wrapper,\n.ai-interview-container.dedicated-page.eye-care .recommended-action-card {");
+    expect(source).toContain("background: rgba(255, 255, 255, 0.10);");
+    expect(source).toContain("border: 1px solid rgba(144, 198, 149, 0.24);");
+    expect(source).toContain("backdrop-filter: blur(18px) saturate(145%);");
+    expect(source).toContain(".ai-interview-container.dedicated-page.eye-care .message.user .message-bubble {\n  background: rgba(255, 255, 255, 0.14);");
+    expect(source).toContain(".ai-interview-container.dedicated-page.eye-care .message-content,\n.ai-interview-container.dedicated-page.eye-care .message.user .message-content,\n.ai-interview-container.dedicated-page.eye-care .message.ai .message-content {\n  color: rgba(255, 255, 255, 0.92);");
+  });
+
   it("removes legacy non-dedicated branches and feature modal remnants", () => {
     expect(source).not.toContain('v-if="!isDedicatedAiChatPage" class="cyber-background"');
     expect(source).not.toContain('v-if="!isDedicatedAiChatPage" class="main-content"');
@@ -143,13 +155,27 @@ describe("ai chat page layout", () => {
     expect(source).toContain(".threshold-settings-btn:hover .threshold-island-copy");
     expect(source).toContain("position: fixed");
     expect(source).toContain("z-index: 6000");
-    expect(source).toContain("max-height: min(620px, calc(100vh - 120px))");
+    expect(source).toContain("width: min(360px, calc(100vw - 32px))");
+    expect(source).toContain("max-height: min(520px, calc(100vh - 112px))");
     expect(source).toContain("overflow-y: auto");
+    expect(source).toContain(".threshold-settings-panel::before");
+    expect(source).toContain("right: 42px");
+    expect(source).toContain("transform: rotate(45deg)");
     expect(source).toContain("grid-template-columns: 1fr");
     expect(source).toContain("flex-direction: row");
     expect(source).toContain("justify-content: space-between");
+    expect(source).toContain("width: 92px");
+    expect(source).toContain("height: 36px");
     expect(source).toContain("saveAssessmentThresholds");
     expect(source).toContain("getAssessmentThresholds");
+  });
+
+  it("keeps pass score settings readable in eye-care mode", () => {
+    expect(source).toContain(".eye-care .threshold-island-title { color: #ffffff; background: none; -webkit-text-fill-color: #ffffff;");
+    expect(source).toContain(".eye-care .threshold-settings-panel { background: linear-gradient(135deg, rgba(28, 42, 31, 0.92), rgba(42, 60, 46, 0.82));");
+    expect(source).toContain(".eye-care .threshold-settings-header strong { color: #ffffff; }");
+    expect(source).toContain(".eye-care .threshold-field { color: rgba(255, 255, 255, 0.74); }");
+    expect(source).toContain(".eye-care .threshold-field input { background: rgba(255, 255, 255, 0.10); color: #ffffff;");
   });
 
   it("uses more readable user bubbles and recommended action copy colors", () => {

@@ -26,6 +26,7 @@ describe("AIview leaderboard ranking", () => {
     expect(mapper).toContain("FROM ai_question_history");
     expect(mapper).toContain("FROM ai_interview_round_history");
     expect(mapper).toContain("MAX(overall_score) AS max_score");
+    expect(mapper.match(/AND overall_score > 0/g)?.length).toBe(3);
     expect(mapper.match(/GROUP BY user_id/g)?.length).toBe(3);
     expect(mapper).toContain("round_type = #{roundType}");
   });

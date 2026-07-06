@@ -58,4 +58,13 @@ describe("AI stage pages starry glass layout", () => {
     expect(source).toContain("backdrop-filter: blur(18px) saturate(145%)");
     expect(source).toContain("-webkit-backdrop-filter: blur(18px) saturate(145%)");
   });
+
+  it.each(pages)("aligns eye-care background with the ai-hall dark green starfield on $name", ({ name }) => {
+    const source = readPage(name);
+
+    expect(source).toContain("background: linear-gradient(135deg, #1c2a1f 0%, #2a3c2e 100%)");
+    expect(source).toContain("filter: sepia(0.42) hue-rotate(58deg) saturate(0.76)");
+    expect(source).toContain("border: 1px solid rgba(144, 198, 149, 0.24)");
+    expect(source).toContain("background: rgba(255, 255, 255, 0.10)");
+  });
 });

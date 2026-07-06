@@ -2326,4 +2326,43 @@ $shadows-large: multiple-box-shadow(150);
   70% { opacity: 0.15; transform: translate(-50%, -50%) scale(1.25); }
   100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
 }
+
+/* 护眼模式最终校准：对齐 ai-hall 的深绿宇宙毛玻璃风格 */
+.ai-resume-container.eye-care {
+  background: linear-gradient(135deg, #1c2a1f 0%, #2a3c2e 100%) !important;
+}
+
+.ai-resume-container.eye-care #stars,
+.ai-resume-container.eye-care #stars2,
+.ai-resume-container.eye-care #stars3 {
+  opacity: 0.42;
+  filter: sepia(0.42) hue-rotate(58deg) saturate(0.76);
+}
+
+.ai-resume-container.eye-care .content-card,
+.ai-resume-container.eye-care .upload-box,
+.ai-resume-container.eye-care .file-preview-card,
+.ai-resume-container.eye-care .result-card,
+.ai-resume-container.eye-care .score-card {
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(144, 198, 149, 0.24);
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.ai-resume-container.eye-care .page-title,
+.ai-resume-container.eye-care .upload-area h3,
+.ai-resume-container.eye-care .file-details h4,
+.ai-resume-container.eye-care .result-title {
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.ai-resume-container.eye-care .supported-formats,
+.ai-resume-container.eye-care .upload-hint,
+.ai-resume-container.eye-care .file-details p,
+.ai-resume-container.eye-care .suggestion-item {
+  color: rgba(255, 255, 255, 0.78);
+}
 </style>

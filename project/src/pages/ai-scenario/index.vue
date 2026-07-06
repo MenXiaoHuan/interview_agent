@@ -4131,4 +4131,50 @@ $shadows-large: multiple-box-shadow(150);
   text-align: center;
   gap: 20px;
 }
+
+/* 护眼模式最终校准：对齐 ai-hall 的深绿宇宙毛玻璃风格 */
+.scene-assessment-container.eye-care {
+  background: linear-gradient(135deg, #1c2a1f 0%, #2a3c2e 100%) !important;
+}
+
+.scene-assessment-container.eye-care #stars,
+.scene-assessment-container.eye-care #stars2,
+.scene-assessment-container.eye-care #stars3 {
+  opacity: 0.42;
+  filter: sepia(0.42) hue-rotate(58deg) saturate(0.76);
+}
+
+.scene-assessment-container.eye-care .content-wrapper,
+.scene-assessment-container.eye-care .scene-assessment-card,
+.scene-assessment-container.eye-care .scene-card,
+.scene-assessment-container.eye-care .audio-visualizer,
+.scene-assessment-container.eye-care .completion-card,
+.scene-assessment-container.eye-care .stat-item,
+.scene-assessment-container.eye-care .overall-assessment,
+.scene-assessment-container.eye-care .question-card,
+.scene-assessment-container.eye-care .tip-card {
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(144, 198, 149, 0.24);
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.scene-assessment-container.eye-care .card-title,
+.scene-assessment-container.eye-care .scene-text,
+.scene-assessment-container.eye-care .completion-header h2,
+.scene-assessment-container.eye-care .assessment-title,
+.scene-assessment-container.eye-care .question-title,
+.scene-assessment-container.eye-care .tip-title {
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.scene-assessment-container.eye-care .card-subtitle,
+.scene-assessment-container.eye-care .timer,
+.scene-assessment-container.eye-care .stat-label,
+.scene-assessment-container.eye-care .assessment-content,
+.scene-assessment-container.eye-care .tip-content {
+  color: rgba(255, 255, 255, 0.76);
+}
 </style>
