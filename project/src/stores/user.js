@@ -1,7 +1,11 @@
 import { defineStore } from 'pinia';
-import request from '@/utils/request';
-import { API } from '@/utils/api';
+import request from '@/utils/api/request';
 import { getStorage, setStorage, removeStorage } from '@/utils/storage';
+import { BASE_URL } from '@/utils/api/api-config';
+
+const USER_API = {
+  EYEMODE: `${BASE_URL}/api/user/eyemode`,
+};
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -97,7 +101,7 @@ export const useUserStore = defineStore('user', {
       this.loading = true;
       this.error = null;
       try {
-        const response = await request.put(API.USER.EYEMODE, {
+        const response = await request.put(USER_API.EYEMODE, {
           eyeCareMode: value ? 1 : 0,
         });
         if (response.code === 200) {

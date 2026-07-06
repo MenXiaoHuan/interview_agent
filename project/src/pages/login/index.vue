@@ -44,8 +44,8 @@
           <div class="showcase-content">
             <h1>一站式智能面试体验</h1>
             <p>
-              AI 面试、专项题作答、简历评测、场景评测与综合报告整合到一个入口，
-              覆盖岗位选择到报告复盘的完整训练闭环。
+              AIview 将简历投递、试题作答、一面、二面和三面整合到一个对话入口，
+              覆盖岗位选择到面试复盘的完整求职闭环。
             </p>
 
             <div class="showcase-feature-list">
@@ -55,7 +55,7 @@
               </div>
               <div class="showcase-feature-item">
                 <span class="feature-dot"></span>
-                <span>历史记录与综合报告沉淀每一次训练结果</span>
+                <span>AI 对话流沉淀每一次面试过程与阶段反馈</span>
               </div>
               <div class="showcase-feature-item">
                 <span class="feature-dot"></span>
@@ -395,8 +395,8 @@
 import { reactive, ref, computed, onUnmounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { onMounted } from "vue";
-import request from "@/utils/request";
-import { API } from "@/utils/api";
+import request from "@/utils/api/request";
+import { API } from "@/utils/api/pages/login";
 import { useUserStore } from "@/stores/user";
 
 const router = useRouter();

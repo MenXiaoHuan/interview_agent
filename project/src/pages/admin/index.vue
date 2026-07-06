@@ -82,42 +82,6 @@
           </div>
         </div>
 
-        <div class="menu-section">
-          <h3 class="section-title">题库管理</h3>
-          <div class="menu-grid">
-            <div class="menu-item" @click="goToQuestionManagement">
-              <div class="menu-icon">
-                <svg class="menu-svg-inner" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="6" y="4" width="12" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
-                  <path d="M9 4h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                  <path d="M8 9h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                  <path d="M8 13h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-              </div>
-              <div class="menu-content">
-                <h4>试题评测管理</h4>
-                <p>管理试题评测试题和记录</p>
-              </div>
-              <span class="arrow">></span>
-            </div>
-            <div class="menu-item" @click="goToScenarioManagement">
-              <div class="menu-icon">
-                <svg class="menu-svg-inner" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M6 6h7v6c0 2.5-2 4.5-4.5 4.5S4 14.5 4 12V6h2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                  <path d="M18 6h2v6c0 2.5-2 4.5-4.5 4.5-1 0-1.9-.3-2.7-.9" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                  <path d="M7 9h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                  <path d="M14.5 9h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-              </div>
-              <div class="menu-content">
-                <h4>场景评测管理</h4>
-                <p>管理场景评测题库和记录</p>
-              </div>
-              <span class="arrow">></span>
-            </div>
-          </div>
-        </div>
-
       </div>
     </div>
   </div>
@@ -142,18 +106,6 @@ const goToUserList = () => {
 const goToUserPermission = () => {
   uni.navigateTo({
     url: '/pages/admin/user-permission/index'
-  });
-};
-
-const goToQuestionManagement = () => {
-  uni.navigateTo({
-    url: '/pages/admin/question-management/index'
-  });
-};
-
-const goToScenarioManagement = () => {
-  uni.navigateTo({
-    url: '/pages/admin/scenario-management/index'
   });
 };
 

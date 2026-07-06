@@ -127,7 +127,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
-import { API, getUserList, updateUserType } from '@/utils/api';
+import { API, getUserList, updateUserType } from '@/utils/api/pages/admin';
 import { applyAvatarFallback, resolveUserAvatar } from '@/utils/avatar';
 
 const userStore = useUserStore();

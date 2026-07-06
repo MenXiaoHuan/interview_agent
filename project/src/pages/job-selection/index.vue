@@ -46,10 +46,10 @@
           </div>
 
           <div class="job-selection-showcase-content">
-            <h1>岗位选择与训练启动</h1>
+            <h1>岗位确认与训练入口</h1>
             <p>
-              从岗位分类筛选到进入专属面试流程，先锁定目标岗位，再开启后续 AI
-              面试、专项题、简历评测与综合报告沉淀。
+              先锁定目标岗位，再进入模拟面试模块入口。其中智能体面试是最核心的沉浸式主入口，
+              后续会进入 AIview 统一承接简历投递、试题作答与三轮面试，形成完整求职闭环。
             </p>
 
             <div class="job-selection-feature-list">
@@ -59,11 +59,11 @@
               </div>
               <div class="job-selection-feature-item">
                 <span class="job-selection-feature-dot"></span>
-                <span>自动带入岗位上下文，进入对应训练链路</span>
+                <span>选定岗位后，优先进入 AIview 面试主入口</span>
               </div>
               <div class="job-selection-feature-item">
                 <span class="job-selection-feature-dot"></span>
-                <span>开始后直接衔接面试、评测与结果复盘流程</span>
+                <span>围绕岗位上下文展开简历投递、试题作答与三轮面试</span>
               </div>
             </div>
           </div>
@@ -146,7 +146,7 @@ import { storeToRefs } from "pinia";
 import FancySelect from "@/components/FancySelect.vue";
 import { getUserSession } from "@/utils/user-session";
 import { applyAvatarFallback, resolveUserAvatar } from "@/utils/avatar";
-import { createNewComprehensiveAssessmentSession } from "@/utils/comprehensive-assessment";
+import { createNewAiAssessmentSession } from "@/utils/comprehensive-assessment";
 
 const router = useRouter();
 const jobStore = useJobStore();
@@ -318,7 +318,7 @@ const handleStartInterview = () => {
       JSON.stringify(defaultSpecializedState),
     );
     uni.setStorageSync("currentJobId", selectedJob.value);
-    createNewComprehensiveAssessmentSession(selectedJob.value);
+    createNewAiAssessmentSession(selectedJob.value);
 
     // 获取选中的岗位完整信息（如果JobStore中可用）
     const jobInfo = jobs.value.find((job) => job.id === selectedJob.value);
@@ -336,7 +336,7 @@ const handleStartInterview = () => {
     isTransitioning.value = true;
     setTimeout(() => {
       uni.navigateTo({
-        url: `/pages/interview-interface/index?jobId=${selectedJob.value}`,
+        url: `/pages/ai-hall/index?jobId=${selectedJob.value}`,
         success: () => {
           console.log("Navigation to interview interface successful");
           uni.showToast({
@@ -436,7 +436,7 @@ const selectJob = (job) => {
 
     // 跳转到面试界面
     uni.navigateTo({
-      url: `/pages/interview-interface/index?jobId=${job.id}`,
+      url: `/pages/ai-hall/index?jobId=${job.id}`,
       success: () => {
         console.log("Navigation to interview interface successful");
       },

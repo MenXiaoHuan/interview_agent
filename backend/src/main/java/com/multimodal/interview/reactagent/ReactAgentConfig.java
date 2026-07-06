@@ -5,9 +5,7 @@ import com.alibaba.cloud.ai.graph.agent.hook.modelcalllimit.ModelCallLimitHook;
 import com.alibaba.cloud.ai.graph.agent.hook.skills.SkillsAgentHook;
 import com.alibaba.cloud.ai.graph.skills.registry.SkillRegistry;
 import com.alibaba.cloud.ai.graph.skills.registry.classpath.ClasspathSkillRegistry;
-import com.multimodal.interview.controller.ChoiceQuestionController;
 import com.multimodal.interview.reactagent.tool.JobAgentTool;
-import com.multimodal.interview.controller.ResumeController;
 import com.multimodal.interview.reactagent.output.AgentStructuredOutputs;
 import com.multimodal.interview.reactagent.skill.SingleSkillRegistry;
 import org.redisson.Redisson;
@@ -18,6 +16,7 @@ import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 /**
  * ReactAgent Spring Boot 配置入口。
@@ -38,6 +37,7 @@ import org.springframework.context.annotation.Configuration;
 public class ReactAgentConfig {
 
     @Bean(destroyMethod = "shutdown")
+    @Profile("!test")
     public RedissonClient redissonClient(
             @Value("${spring.data.redis.host:127.0.0.1}") String host,
             @Value("${spring.data.redis.port:6379}") int port,
@@ -63,134 +63,81 @@ public class ReactAgentConfig {
                 .build();
     }
 
-    @Bean("resume-analysis")
-    public ReactAgent resumeAnalysisAgent(
-            ChatModel model,
-            SkillRegistry rootSkillRegistry,
-            JobAgentTool jobAgentTool,
-            ResumeController resumeController,
-            ChoiceQuestionController choiceQuestionController
-    ) {
-        return buildStructured("resume-analysis", "简历评测", model, rootSkillRegistry,
-                AgentStructuredOutputs.ResumeAnalysisResult.class,
-                jobAgentTool, resumeController, choiceQuestionController);
-    }
-
-    @Bean("scenario-evaluation")
-    public ReactAgent scenarioInterviewEvaluationAgent(
-            ChatModel model,
-            SkillRegistry rootSkillRegistry,
-            JobAgentTool jobAgentTool,
-            ResumeController resumeController,
-            ChoiceQuestionController choiceQuestionController
-    ) {
-        return buildStructured("scenario-evaluation", "场景面试评测", model, rootSkillRegistry,
-                AgentStructuredOutputs.ScenarioEvaluationResult.class,
-                jobAgentTool, resumeController, choiceQuestionController);
-    }
-
-    @Bean("comprehensive-report")
-    public ReactAgent comprehensiveReportAgent(
-            ChatModel model,
-            SkillRegistry rootSkillRegistry,
-            JobAgentTool jobAgentTool,
-            ResumeController resumeController,
-            ChoiceQuestionController choiceQuestionController
-    ) {
-        return buildStructured("comprehensive-report", "综合报告生成", model, rootSkillRegistry,
-                AgentStructuredOutputs.ComprehensiveReportResult.class,
-                jobAgentTool, resumeController, choiceQuestionController);
-    }
-
-    @Bean("interview-assistant")
+    @Bean("ai-interview-assistant")
     public ReactAgent interviewAssistantAgent(
             ChatModel model,
             SkillRegistry rootSkillRegistry,
-            JobAgentTool jobAgentTool,
-            ResumeController resumeController,
-            ChoiceQuestionController choiceQuestionController
+            JobAgentTool jobAgentTool
     ) {
-        return buildStructured("interview-assistant", "面试对话助手", model, rootSkillRegistry,
+        return buildStructured("ai-interview-assistant", "面试对话助手", model, rootSkillRegistry,
                 AgentStructuredOutputs.InterviewAssistantResult.class,
-                jobAgentTool, resumeController, choiceQuestionController);
+                jobAgentTool);
     }
 
-    @Bean("scenario-question-gen")
+    @Bean("ai-round-question-generation")
     public ReactAgent scenarioQuestionGenerationAgent(
             ChatModel model,
             SkillRegistry rootSkillRegistry,
-            JobAgentTool jobAgentTool,
-            ResumeController resumeController,
-            ChoiceQuestionController choiceQuestionController
+            JobAgentTool jobAgentTool
     ) {
-        return buildStructured("scenario-question-gen", "场景题生成", model, rootSkillRegistry,
+        return buildStructured("ai-round-question-generation", "面试轮次题目生成", model, rootSkillRegistry,
                 AgentStructuredOutputs.ScenarioQuestionGenerationResult.class,
-                jobAgentTool, resumeController, choiceQuestionController);
+                jobAgentTool);
     }
 
-    @Bean("scenario-audio-evaluation")
+    @Bean("ai-round-evaluation")
     public ReactAgent scenarioAudioEvaluationAgent(
             ChatModel model,
             SkillRegistry rootSkillRegistry,
-            JobAgentTool jobAgentTool,
-            ResumeController resumeController,
-            ChoiceQuestionController choiceQuestionController
+            JobAgentTool jobAgentTool
     ) {
-        return buildStructured("scenario-audio-evaluation", "场景语音评测", model, rootSkillRegistry,
+        return buildStructured("ai-round-evaluation", "面试轮次回答评测", model, rootSkillRegistry,
                 AgentStructuredOutputs.ScenarioAudioEvaluationResult.class,
-                jobAgentTool, resumeController, choiceQuestionController);
+                jobAgentTool);
     }
 
-    @Bean("comprehensive-resume-analysis")
+    @Bean("ai-resume-analysis")
     public ReactAgent comprehensiveResumeAnalysisAgent(
             ChatModel model,
             SkillRegistry rootSkillRegistry,
-            JobAgentTool jobAgentTool,
-            ResumeController resumeController,
-            ChoiceQuestionController choiceQuestionController
+            JobAgentTool jobAgentTool
     ) {
-        return buildStructured("comprehensive-resume-analysis", "综合简历评测", model, rootSkillRegistry,
-                AgentStructuredOutputs.ComprehensiveResumeAnalysisResult.class,
-                jobAgentTool, resumeController, choiceQuestionController);
+        return buildStructured("ai-resume-analysis", "简历投递评测", model, rootSkillRegistry,
+                AgentStructuredOutputs.AiResumeAnalysisResult.class,
+                jobAgentTool);
     }
 
-    @Bean("comprehensive-question-generation")
+    @Bean("ai-question-generation")
     public ReactAgent comprehensiveQuestionGenerationAgent(
             ChatModel model,
             SkillRegistry rootSkillRegistry,
-            JobAgentTool jobAgentTool,
-            ResumeController resumeController,
-            ChoiceQuestionController choiceQuestionController
+            JobAgentTool jobAgentTool
     ) {
-        return buildStructured("comprehensive-question-generation", "综合题库生成", model, rootSkillRegistry,
-                AgentStructuredOutputs.ComprehensiveQuestionGenerationResult.class,
-                jobAgentTool, resumeController, choiceQuestionController);
+        return buildStructured("ai-question-generation", "试题作答题目生成", model, rootSkillRegistry,
+                AgentStructuredOutputs.AiQuestionGenerationResult.class,
+                jobAgentTool);
     }
 
-    @Bean("scenario-question-scoring")
+    @Bean("ai-question-scoring")
     public ReactAgent scenarioQuestionScoringAgent(
             ChatModel model,
             SkillRegistry rootSkillRegistry,
-            JobAgentTool jobAgentTool,
-            ResumeController resumeController,
-            ChoiceQuestionController choiceQuestionController
+            JobAgentTool jobAgentTool
     ) {
-        return buildStructured("scenario-question-scoring", "场景题评分", model, rootSkillRegistry,
+        return buildStructured("ai-question-scoring", "试题场景问答评分", model, rootSkillRegistry,
                 AgentStructuredOutputs.ScenarioQuestionScoringResult.class,
-                jobAgentTool, resumeController, choiceQuestionController);
+                jobAgentTool);
     }
 
-    @Bean("question-analysis")
+    @Bean("ai-question-analysis")
     public ReactAgent questionAnalysisAgent(
             ChatModel model,
             SkillRegistry rootSkillRegistry,
-            JobAgentTool jobAgentTool,
-            ResumeController resumeController,
-            ChoiceQuestionController choiceQuestionController
+            JobAgentTool jobAgentTool
     ) {
-        return buildStructured("question-analysis", "题目解析", model, rootSkillRegistry,
+        return buildStructured("ai-question-analysis", "题目解析", model, rootSkillRegistry,
                 AgentStructuredOutputs.QuestionAnalysisResult.class,
-                jobAgentTool, resumeController, choiceQuestionController);
+                jobAgentTool);
     }
 
     private SkillsAgentHook skillsHookFor(SkillRegistry rootSkillRegistry, String skillName) {

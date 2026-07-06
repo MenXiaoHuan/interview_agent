@@ -34,7 +34,7 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 @Service
 public class AgentConversationServiceImpl implements AgentConversationService {
-    private static final String DEFAULT_AGENT_KEY = "interview-assistant";
+    private static final String DEFAULT_AGENT_KEY = "ai-interview-assistant";
     private static final String STATE_SNAPSHOT_EVENT_TYPE = "session_state_snapshot";
     private static final String DEFAULT_PREVIEW = "点击开始对话";
     private final AgentConversationSessionMapper sessionMapper;

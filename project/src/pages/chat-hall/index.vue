@@ -44,7 +44,7 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
-import { API } from '@/utils/api'
+import { API } from '@/utils/api/pages/chat-hall'
 
 const room = ref('global')
 const messages = ref([])

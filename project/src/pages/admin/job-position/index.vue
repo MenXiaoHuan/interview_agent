@@ -261,7 +261,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
-import { API, getJobCategoriesTree, getJobList, getJobDetail, createJob, updateJob, deleteJob } from '@/utils/api';
+import { API, getJobCategoriesTree, getJobList, getJobDetail, createJob, updateJob, deleteJob } from '@/utils/api/pages/admin';
 
 const userStore = useUserStore();
 const { isEyeCareMode } = storeToRefs(userStore);

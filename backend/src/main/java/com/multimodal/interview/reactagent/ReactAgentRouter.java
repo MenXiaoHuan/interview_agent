@@ -58,16 +58,13 @@ public class ReactAgentRouter {
             "temporarily unavailable"
     );
     private static final Map<String, Class<?>> STRUCTURED_OUTPUT_TYPES = Map.of(
-            "resume-analysis", AgentStructuredOutputs.ResumeAnalysisResult.class,
-            "scenario-evaluation", AgentStructuredOutputs.ScenarioEvaluationResult.class,
-            "comprehensive-report", AgentStructuredOutputs.ComprehensiveReportResult.class,
-            "interview-assistant", AgentStructuredOutputs.InterviewAssistantResult.class,
-            "scenario-question-gen", AgentStructuredOutputs.ScenarioQuestionGenerationResult.class,
-            "scenario-audio-evaluation", AgentStructuredOutputs.ScenarioAudioEvaluationResult.class,
-            "comprehensive-resume-analysis", AgentStructuredOutputs.ComprehensiveResumeAnalysisResult.class,
-            "comprehensive-question-generation", AgentStructuredOutputs.ComprehensiveQuestionGenerationResult.class,
-            "scenario-question-scoring", AgentStructuredOutputs.ScenarioQuestionScoringResult.class,
-            "question-analysis", AgentStructuredOutputs.QuestionAnalysisResult.class
+            "ai-interview-assistant", AgentStructuredOutputs.InterviewAssistantResult.class,
+            "ai-round-question-generation", AgentStructuredOutputs.ScenarioQuestionGenerationResult.class,
+            "ai-round-evaluation", AgentStructuredOutputs.ScenarioAudioEvaluationResult.class,
+            "ai-resume-analysis", AgentStructuredOutputs.AiResumeAnalysisResult.class,
+            "ai-question-generation", AgentStructuredOutputs.AiQuestionGenerationResult.class,
+            "ai-question-scoring", AgentStructuredOutputs.ScenarioQuestionScoringResult.class,
+            "ai-question-analysis", AgentStructuredOutputs.QuestionAnalysisResult.class
     );
 
     private final Map<String, ReactAgent> agentByKey;
@@ -101,14 +98,14 @@ public class ReactAgentRouter {
         }
         try {
             Map<String, Object> safeParams = params == null ? Map.of() : params;
-            if ("interview-assistant".equals(agentKey)) {
+            if ("ai-interview-assistant".equals(agentKey)) {
                 safeParams = interviewAssistantMemoryService.enrichParams(chatId, safeParams);
             }
             String userContent = buildUserContent(agentKey, safeParams);
             AssistantMessage message = agent.call(new UserMessage(userContent));
             String text = message == null ? "" : String.valueOf(message.getText());
             Object output = parseAgentOutput(agentKey, text, safeParams);
-            if ("interview-assistant".equals(agentKey) && output instanceof AgentStructuredOutputs.InterviewAssistantResult result) {
+            if ("ai-interview-assistant".equals(agentKey) && output instanceof AgentStructuredOutputs.InterviewAssistantResult result) {
                 interviewAssistantMemoryService.rememberAssistantReply(chatId, safeParams, result.getReply());
             }
             return output;
@@ -141,22 +138,314 @@ public class ReactAgentRouter {
         }
         try {
             Object parsed = objectMapper.readValue(candidate, outputType);
-            if ("interview-assistant".equals(agentKey)
+            if ("ai-interview-assistant".equals(agentKey)
                     && parsed instanceof AgentStructuredOutputs.InterviewAssistantResult result) {
                 return postProcessInterviewAssistant(result, params);
             }
-            return parsed;
+            return postProcessStructuredOutput(agentKey, parsed, params);
         } catch (JsonProcessingException exception) {
-            log.error("Agent结构化输出解析失败, agentKey={}, rawText={}, candidate={}",
+            log.warn("Agent结构化输出解析失败，将尝试降级处理, agentKey={}, rawText={}, candidate={}, reason={}",
                     agentKey,
                     abbreviate(rawText),
                     abbreviate(candidate),
-                    exception);
+                    exception.getOriginalMessage());
             if (looksLikeAiServiceFailure(candidate) || looksLikeAiServiceFailure(rawText)) {
                 throw BusinessException.serviceUnavailable("AI 服务当前不可用");
             }
-            throw BusinessException.internalError("Agent结构化输出解析失败: " + exception.getOriginalMessage());
+            return buildFallbackStructuredOutput(agentKey, rawText, candidate, params);
         }
+    }
+
+    private Object postProcessStructuredOutput(String agentKey, Object parsed, Map<String, Object> params) {
+        if (parsed instanceof AgentStructuredOutputs.AiResumeAnalysisResult result) {
+            result.setScore(clampScore(result.getScore()));
+            result.setSuggestions(normalizeStringList(
+                    result.getSuggestions(),
+                    List.of("补充与岗位要求直接相关的项目证据和量化结果。")
+            ));
+            return result;
+        }
+        if (parsed instanceof AgentStructuredOutputs.QuestionAnalysisResult result) {
+            result.setAnalysis(firstNonBlank(
+                    result.getAnalysis(),
+                    "本题解析暂时不可用，请结合题干、正确答案和关键知识点进行复盘。"
+            ));
+            return result;
+        }
+        if (parsed instanceof AgentStructuredOutputs.ScenarioQuestionGenerationResult result) {
+            result.setQuestion(firstNonBlank(
+                    result.getQuestion(),
+                    "请结合一次真实项目经历，说明你如何分析问题、制定方案并推动落地？"
+            ));
+            return result;
+        }
+        if (parsed instanceof AgentStructuredOutputs.ScenarioQuestionScoringResult result) {
+            result.setExamData(normalizeQuestionScoringItems(result.getExamData(), params));
+            return result;
+        }
+        if (parsed instanceof AgentStructuredOutputs.ScenarioAudioEvaluationResult result) {
+            return normalizeRoundEvaluationResult(result);
+        }
+        if (parsed instanceof AgentStructuredOutputs.AiQuestionGenerationResult result) {
+            result.setChoiceQuestions(result.getChoiceQuestions() == null ? List.of() : result.getChoiceQuestions());
+            result.setFillBlankQuestions(result.getFillBlankQuestions() == null ? List.of() : result.getFillBlankQuestions());
+            result.setScenarioQuestions(result.getScenarioQuestions() == null ? List.of() : result.getScenarioQuestions());
+            return result;
+        }
+        return parsed;
+    }
+
+    private Object buildFallbackStructuredOutput(
+            String agentKey,
+            String rawText,
+            String candidate,
+            Map<String, Object> params
+    ) {
+        log.warn("Agent结构化输出已降级处理, agentKey={}, rawText={}, candidate={}",
+                agentKey,
+                abbreviate(rawText),
+                abbreviate(candidate));
+        JsonNode root = parseJsonNode(candidate);
+        String readableText = firstNonBlank(textFromJson(root), rawText, candidate);
+        return switch (agentKey) {
+            case "ai-resume-analysis" -> fallbackResumeAnalysis(root, readableText);
+            case "ai-question-analysis" -> fallbackQuestionAnalysis(root, readableText);
+            case "ai-round-question-generation" -> fallbackRoundQuestionGeneration(root, readableText);
+            case "ai-question-scoring" -> fallbackQuestionScoring(root, params, readableText);
+            case "ai-round-evaluation" -> fallbackRoundEvaluation(root, params, readableText);
+            case "ai-question-generation" -> new AgentStructuredOutputs.AiQuestionGenerationResult();
+            case "ai-interview-assistant" -> {
+                AgentStructuredOutputs.InterviewAssistantResult result = new AgentStructuredOutputs.InterviewAssistantResult();
+                result.setReply(firstNonBlank(readableText, "我来帮你安排下一步。"));
+                yield postProcessInterviewAssistant(result, params);
+            }
+            default -> readableText;
+        };
+    }
+
+    private AgentStructuredOutputs.AiResumeAnalysisResult fallbackResumeAnalysis(JsonNode root, String readableText) {
+        AgentStructuredOutputs.AiResumeAnalysisResult result = new AgentStructuredOutputs.AiResumeAnalysisResult();
+        result.setScore(clampScore(intValue(root, "score", "overallScore", "overall_score")));
+        List<String> suggestions = stringsFromJson(root, "suggestions", "improvementSuggestions", "aiSuggestions", "advice");
+        if (suggestions.isEmpty() && !readableText.isBlank()) {
+            suggestions = List.of(readableText);
+        }
+        result.setSuggestions(normalizeStringList(
+                suggestions,
+                List.of("补充与岗位要求直接相关的项目证据和量化结果。")
+        ));
+        return result;
+    }
+
+    private AgentStructuredOutputs.QuestionAnalysisResult fallbackQuestionAnalysis(JsonNode root, String readableText) {
+        AgentStructuredOutputs.QuestionAnalysisResult result = new AgentStructuredOutputs.QuestionAnalysisResult();
+        result.setAnalysis(firstNonBlank(
+                textValue(root, "analysis"),
+                textValue(root, "content"),
+                textValue(root, "reply"),
+                readableText,
+                "本题解析暂时不可用，请结合题干、正确答案和关键知识点进行复盘。"
+        ));
+        return result;
+    }
+
+    private AgentStructuredOutputs.ScenarioQuestionGenerationResult fallbackRoundQuestionGeneration(JsonNode root, String readableText) {
+        AgentStructuredOutputs.ScenarioQuestionGenerationResult result = new AgentStructuredOutputs.ScenarioQuestionGenerationResult();
+        result.setQuestion(firstNonBlank(
+                textValue(root, "question"),
+                readableText,
+                "请结合一次真实项目经历，说明你如何分析问题、制定方案并推动落地？"
+        ));
+        return result;
+    }
+
+    private AgentStructuredOutputs.ScenarioQuestionScoringResult fallbackQuestionScoring(
+            JsonNode root,
+            Map<String, Object> params,
+            String readableText
+    ) {
+        AgentStructuredOutputs.ScenarioQuestionScoringResult result = new AgentStructuredOutputs.ScenarioQuestionScoringResult();
+        result.setExamData(normalizeQuestionScoringItems(List.of(), params));
+        if (result.getExamData().isEmpty()) {
+            AgentStructuredOutputs.ScenarioQuestionScoreItem item = new AgentStructuredOutputs.ScenarioQuestionScoreItem();
+            item.setAnalysis(firstNonBlank(readableText, textFromJson(root), item.getAnalysis()));
+            result.setExamData(List.of(item));
+        }
+        return result;
+    }
+
+    private AgentStructuredOutputs.ScenarioAudioEvaluationResult fallbackRoundEvaluation(
+            JsonNode root,
+            Map<String, Object> params,
+            String readableText
+    ) {
+        AgentStructuredOutputs.ScenarioAudioEvaluationResult result = new AgentStructuredOutputs.ScenarioAudioEvaluationResult();
+        result.setTotalScore(clampScore(intValue(root, "totalScore", "overallScore", "score")));
+        result.setOverallComment(firstNonBlank(
+                textValue(root, "overallComment"),
+                textValue(root, "comment"),
+                readableText,
+                result.getOverallComment()
+        ));
+        result.setQuestions(List.of());
+        result.setKeyImprovements(normalizeStringList(
+                stringsFromJson(root, "keyImprovements", "suggestions", "advice"),
+                result.getKeyImprovements()
+        ));
+        return normalizeRoundEvaluationResult(result);
+    }
+
+    private AgentStructuredOutputs.ScenarioAudioEvaluationResult normalizeRoundEvaluationResult(
+            AgentStructuredOutputs.ScenarioAudioEvaluationResult result
+    ) {
+        AgentStructuredOutputs.ScenarioAudioEvaluationResult safe =
+                result == null ? new AgentStructuredOutputs.ScenarioAudioEvaluationResult() : result;
+        safe.setTotalScore(clampScore(safe.getTotalScore()));
+        safe.setDimensions(safe.getDimensions() == null ? new AgentStructuredOutputs.AudioDimensions() : safe.getDimensions());
+        safe.setPronunciation(safe.getPronunciation() == null ? new AgentStructuredOutputs.PronunciationResult() : safe.getPronunciation());
+        safe.setFacialExpression(safe.getFacialExpression() == null ? new AgentStructuredOutputs.FacialExpressionResult() : safe.getFacialExpression());
+        safe.setSpeechRate(safe.getSpeechRate() == null ? new AgentStructuredOutputs.SpeechRateResult() : safe.getSpeechRate());
+        safe.setOverallComment(firstNonBlank(
+                safe.getOverallComment(),
+                "AI 评测结果暂时不完整，请以当前作答记录为准重新评测或继续下一步。"
+        ));
+        safe.setQuestions(safe.getQuestions() == null ? List.of() : safe.getQuestions());
+        safe.setKeyImprovements(normalizeStringList(
+                safe.getKeyImprovements(),
+                List.of("补充更完整的作答内容", "按题目要求给出结构化回答")
+        ));
+        return safe;
+    }
+
+    private List<AgentStructuredOutputs.ScenarioQuestionScoreItem> normalizeQuestionScoringItems(
+            List<AgentStructuredOutputs.ScenarioQuestionScoreItem> items,
+            Map<String, Object> params
+    ) {
+        if (items != null && !items.isEmpty()) {
+            List<AgentStructuredOutputs.ScenarioQuestionScoreItem> normalized = new ArrayList<>();
+            for (AgentStructuredOutputs.ScenarioQuestionScoreItem item : items) {
+                AgentStructuredOutputs.ScenarioQuestionScoreItem safeItem =
+                        item == null ? new AgentStructuredOutputs.ScenarioQuestionScoreItem() : item;
+                safeItem.setScore(Math.max(0, Math.min(30, safeItem.getScore() == null ? 0 : safeItem.getScore())));
+                safeItem.setAnalysis(firstNonBlank(
+                        safeItem.getAnalysis(),
+                        "本题评分暂时不完整，请重新提交或补充作答内容。"
+                ));
+                normalized.add(safeItem);
+            }
+            return normalized;
+        }
+        List<?> questions = params == null ? List.of() : params.get("questions") instanceof List<?> list ? list : List.of();
+        if (questions.isEmpty()) {
+            return List.of();
+        }
+        List<AgentStructuredOutputs.ScenarioQuestionScoreItem> fallback = new ArrayList<>();
+        for (int index = 0; index < questions.size(); index++) {
+            AgentStructuredOutputs.ScenarioQuestionScoreItem item = new AgentStructuredOutputs.ScenarioQuestionScoreItem();
+            item.setScore(0);
+            item.setAnalysis("第 " + (index + 1) + " 题评分暂时不完整，请重新提交或补充作答内容。");
+            fallback.add(item);
+        }
+        return fallback;
+    }
+
+    private JsonNode parseJsonNode(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readTree(text);
+        } catch (Exception ignore) {
+            return null;
+        }
+    }
+
+    private int clampScore(Integer score) {
+        if (score == null) {
+            return 0;
+        }
+        return Math.max(0, Math.min(100, score));
+    }
+
+    private Integer intValue(JsonNode root, String... fieldNames) {
+        if (root == null || fieldNames == null) {
+            return 0;
+        }
+        for (String fieldName : fieldNames) {
+            JsonNode value = root.path(fieldName);
+            if (value.isMissingNode() || value.isNull()) {
+                continue;
+            }
+            if (value.isNumber()) {
+                return value.asInt(0);
+            }
+            if (value.isTextual()) {
+                try {
+                    return Integer.parseInt(value.asText("").trim());
+                } catch (NumberFormatException ignored) {
+                    return 0;
+                }
+            }
+        }
+        return 0;
+    }
+
+    private List<String> stringsFromJson(JsonNode root, String... fieldNames) {
+        if (root == null || fieldNames == null) {
+            return List.of();
+        }
+        for (String fieldName : fieldNames) {
+            JsonNode value = root.path(fieldName);
+            if (value.isMissingNode() || value.isNull()) {
+                continue;
+            }
+            if (value.isArray()) {
+                List<String> items = new ArrayList<>();
+                value.forEach(item -> {
+                    String text = item.isValueNode() ? item.asText("") : item.toString();
+                    if (text != null && !text.isBlank()) {
+                        items.add(text.trim());
+                    }
+                });
+                if (!items.isEmpty()) {
+                    return items;
+                }
+            }
+            if (value.isValueNode()) {
+                String text = value.asText("");
+                if (!text.isBlank()) {
+                    return List.of(text.trim());
+                }
+            }
+        }
+        return List.of();
+    }
+
+    private List<String> normalizeStringList(List<String> values, List<String> fallback) {
+        List<String> normalized = values == null ? List.of() : values.stream()
+                .map(item -> item == null ? "" : item.trim())
+                .filter(item -> !item.isBlank())
+                .distinct()
+                .limit(5)
+                .toList();
+        if (!normalized.isEmpty()) {
+            return normalized;
+        }
+        return fallback == null || fallback.isEmpty() ? List.of() : fallback;
+    }
+
+    private String textFromJson(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return "";
+        }
+        return firstNonBlank(
+                textValue(root, "message"),
+                textValue(root, "reply"),
+                textValue(root, "analysis"),
+                textValue(root, "content"),
+                textValue(root, "text"),
+                root.isValueNode() ? root.asText("") : ""
+        );
     }
 
     private boolean looksLikeAiServiceFailure(String text) {
@@ -318,9 +607,11 @@ public class ReactAgentRouter {
             return normalizedReply;
         }
         String prefix = switch (completionType) {
-            case "resume_completed" -> "已确认你已完成综合测评中的简历评测。";
-            case "questions_completed" -> "已确认你已完成综合测评中的试题作答。";
-            case "audio_completed" -> "已确认你已完成综合测评中的场景评测。";
+            case "resume_completed" -> "已确认你已完成 AIview 测评中的简历投递。";
+            case "questions_completed" -> "已确认你已完成 AIview 测评中的试题作答。";
+            case "round_1_completed" -> "已确认你已完成 AIview 测评中的一面。";
+            case "round_2_completed" -> "已确认你已完成 AIview 测评中的二面。";
+            case "round_3_completed" -> "已确认你已完成 AIview 测评中的三面。";
             default -> "";
         };
         if (prefix.isBlank()) {
@@ -450,59 +741,36 @@ public class ReactAgentRouter {
                     addActionIfAvailable(inferred, availableActions, "go_questions");
                 }
             } else if ("questions_completed".equals(completionType)) {
-                if ("COMPREHENSIVE".equalsIgnoreCase(evaluationMode) && !isCompleted(state, "audio")) {
-                    addActionIfAvailable(inferred, availableActions, "go_audio");
+                if ("COMPREHENSIVE".equalsIgnoreCase(evaluationMode) && !isCompleted(state, "round_1")) {
+                    addActionIfAvailable(inferred, availableActions, "go_round_1");
                 }
-            } else if ("audio_completed".equals(completionType)) {
+            } else if ("round_1_completed".equals(completionType)) {
+                if ("COMPREHENSIVE".equalsIgnoreCase(evaluationMode) && !isCompleted(state, "round_2")) {
+                    addActionIfAvailable(inferred, availableActions, "go_round_2");
+                }
+            } else if ("round_2_completed".equals(completionType)) {
+                if ("COMPREHENSIVE".equalsIgnoreCase(evaluationMode) && !isCompleted(state, "round_3")) {
+                    addActionIfAvailable(inferred, availableActions, "go_round_3");
+                }
+            } else if ("round_3_completed".equals(completionType)) {
                 if ("COMPREHENSIVE".equalsIgnoreCase(evaluationMode)) {
-                    addActionIfAvailable(inferred, availableActions, "go_report");
+                    addActionIfAvailable(inferred, availableActions, "restart_comprehensive");
                 }
             }
             if (!inferred.isEmpty()) {
                 return inferred;
             }
-        }
-
-        if (containsAny(combined, "历史记录", "历史", "记录", "复盘")) {
-            if (containsAny(combined, "简历", "简历评测")) {
-                addActionIfAvailable(inferred, availableActions, "view_resume_history");
-            }
-            if (containsAny(combined, "试题", "笔试", "作答")) {
-                addActionIfAvailable(inferred, availableActions, "view_questions_history");
-            }
-            if (containsAny(combined, "场景", "语音", "口语")) {
-                addActionIfAvailable(inferred, availableActions, "view_audio_history");
-            }
-            if (!inferred.isEmpty()) {
-                return inferred;
-            }
-        }
-
-        if ((containsAny(combined, "简历", "上传简历") || containsAny(combined, "专项测评", "综合测评"))
-                && evaluationMode.isBlank()) {
-            addActionIfAvailable(inferred, availableActions, "choose_special");
-            addActionIfAvailable(inferred, availableActions, "choose_comprehensive");
-            return inferred;
         }
 
         if (containsAny(combined, "简历", "上传简历")) {
-            if ("COMPREHENSIVE".equalsIgnoreCase(evaluationMode)) {
-                addActionIfAvailable(inferred, availableActions, "upload_resume_comprehensive");
-                addActionIfAvailable(inferred, availableActions, "go_resume");
-            } else if ("SPECIAL".equalsIgnoreCase(evaluationMode)) {
-                addActionIfAvailable(inferred, availableActions, "upload_resume_special");
-                addActionIfAvailable(inferred, availableActions, "go_resume");
-            }
+            addActionIfAvailable(inferred, availableActions, "go_resume");
             if (!inferred.isEmpty()) {
                 return inferred;
             }
         }
 
         if (containsAny(combined, "试题", "笔试")) {
-            if (evaluationMode.isBlank()) {
-                addActionIfAvailable(inferred, availableActions, "choose_special");
-                addActionIfAvailable(inferred, availableActions, "choose_comprehensive");
-            } else if ("COMPREHENSIVE".equalsIgnoreCase(evaluationMode) && !isCompleted(state, "resume")) {
+            if ("COMPREHENSIVE".equalsIgnoreCase(evaluationMode) && !isCompleted(state, "resume")) {
                 addActionIfAvailable(inferred, availableActions, "go_resume");
             } else {
                 addActionIfAvailable(inferred, availableActions, "go_questions");
@@ -512,14 +780,19 @@ public class ReactAgentRouter {
             }
         }
 
-        if (containsAny(combined, "场景", "语音", "口语")) {
-            if (evaluationMode.isBlank()) {
-                addActionIfAvailable(inferred, availableActions, "choose_special");
-                addActionIfAvailable(inferred, availableActions, "choose_comprehensive");
-            } else if ("COMPREHENSIVE".equalsIgnoreCase(evaluationMode) && !isCompleted(state, "questions")) {
+        if (containsAny(combined, "一面", "技术一面", "二面", "技术二面", "三面", "HR")) {
+            if ("COMPREHENSIVE".equalsIgnoreCase(evaluationMode) && !isCompleted(state, "questions")) {
                 addActionIfAvailable(inferred, availableActions, "go_questions");
+            } else if (containsAny(combined, "二面", "技术二面") && !isCompleted(state, "round_1")) {
+                addActionIfAvailable(inferred, availableActions, "go_round_1");
+            } else if (containsAny(combined, "三面", "HR") && !isCompleted(state, "round_2")) {
+                addActionIfAvailable(inferred, availableActions, "go_round_2");
+            } else if (containsAny(combined, "三面", "HR")) {
+                addActionIfAvailable(inferred, availableActions, "go_round_3");
+            } else if (containsAny(combined, "二面", "技术二面")) {
+                addActionIfAvailable(inferred, availableActions, "go_round_2");
             } else {
-                addActionIfAvailable(inferred, availableActions, "go_audio");
+                addActionIfAvailable(inferred, availableActions, "go_round_1");
             }
             if (!inferred.isEmpty()) {
                 return inferred;
@@ -527,23 +800,18 @@ public class ReactAgentRouter {
         }
 
         if (containsAny(combined, "下一步", "接下来", "下一阶段", "继续")) {
-            if (isCompleted(state, "resume") && isCompleted(state, "questions") && isCompleted(state, "audio")) {
-                addActionIfAvailable(inferred, availableActions, "go_report");
-            } else if (!isCompleted(state, "resume")) {
-                if ("SPECIAL".equalsIgnoreCase(evaluationMode)) {
-                    addActionIfAvailable(inferred, availableActions, "upload_resume_special");
-                    addActionIfAvailable(inferred, availableActions, "go_resume");
-                } else if ("COMPREHENSIVE".equalsIgnoreCase(evaluationMode)) {
-                    addActionIfAvailable(inferred, availableActions, "upload_resume_comprehensive");
-                    addActionIfAvailable(inferred, availableActions, "go_resume");
-                } else {
-                    addActionIfAvailable(inferred, availableActions, "choose_special");
-                    addActionIfAvailable(inferred, availableActions, "choose_comprehensive");
-                }
+            if (!isCompleted(state, "resume")) {
+                addActionIfAvailable(inferred, availableActions, "go_resume");
             } else if (!isCompleted(state, "questions")) {
                 addActionIfAvailable(inferred, availableActions, "go_questions");
-            } else if (!isCompleted(state, "audio")) {
-                addActionIfAvailable(inferred, availableActions, "go_audio");
+            } else if (!isCompleted(state, "round_1")) {
+                addActionIfAvailable(inferred, availableActions, "go_round_1");
+            } else if (!isCompleted(state, "round_2")) {
+                addActionIfAvailable(inferred, availableActions, "go_round_2");
+            } else if (!isCompleted(state, "round_3")) {
+                addActionIfAvailable(inferred, availableActions, "go_round_3");
+            } else {
+                addActionIfAvailable(inferred, availableActions, "restart_comprehensive");
             }
         }
         return inferred;
@@ -582,17 +850,12 @@ public class ReactAgentRouter {
      */
     private String defaultActionLabel(String type) {
         return switch (type) {
-            case "choose_special" -> "专项测评";
-            case "choose_comprehensive" -> "综合测评";
-            case "upload_resume_special" -> "上传简历做专项评测";
-            case "upload_resume_comprehensive" -> "上传简历做综合评测";
-            case "go_resume" -> "去做简历评测";
+            case "go_resume" -> "去做简历投递";
             case "go_questions" -> "去做试题作答";
-            case "go_audio" -> "去做场景评测";
-            case "go_report" -> "查看综合报告";
-            case "view_resume_history" -> "查看简历测评历史记录";
-            case "view_questions_history" -> "查看试题作答历史记录";
-            case "view_audio_history" -> "查看场景评测历史记录";
+            case "go_round_1" -> "进入一面";
+            case "go_round_2" -> "进入二面";
+            case "go_round_3" -> "进入三面";
+            case "restart_comprehensive" -> "重新开始 AIview 测评";
             default -> type;
         };
     }
@@ -636,8 +899,16 @@ public class ReactAgentRouter {
             return "questions_completed";
         }
         if ((content.contains("刚完成") || content.contains("已完成") || content.contains("完成了"))
-                && (content.contains("场景") || content.contains("语音"))) {
-            return "audio_completed";
+                && (content.contains("一面") || content.contains("技术一面"))) {
+            return "round_1_completed";
+        }
+        if ((content.contains("刚完成") || content.contains("已完成") || content.contains("完成了"))
+                && (content.contains("二面") || content.contains("技术二面"))) {
+            return "round_2_completed";
+        }
+        if ((content.contains("刚完成") || content.contains("已完成") || content.contains("完成了"))
+                && (content.contains("三面") || content.contains("HR"))) {
+            return "round_3_completed";
         }
         return "";
     }
@@ -654,10 +925,6 @@ public class ReactAgentRouter {
         }
         if (containsJobSwitchIntent(question)) {
             return "switch_job";
-        }
-        String targetMode = inferTargetMode(params, reply, actions);
-        if ("UNKNOWN".equals(targetMode) && containsAny(question, "专项测评", "综合测评", "专项", "综合")) {
-            return "choose_mode";
         }
         String targetModule = inferTargetModule(params, reply, actions);
         if (!"NONE".equals(targetModule)
@@ -686,12 +953,18 @@ public class ReactAgentRouter {
         }
         if ("questions_completed".equals(completionType)
                 && "COMPREHENSIVE".equalsIgnoreCase(evaluationMode)
-                && !isCompleted(state, "audio")) {
-            return "audio";
+                && !isCompleted(state, "round_1")) {
+            return "round_1";
         }
-        if ("audio_completed".equals(completionType)
-                && "COMPREHENSIVE".equalsIgnoreCase(evaluationMode)) {
-            return "report";
+        if ("round_1_completed".equals(completionType)
+                && "COMPREHENSIVE".equalsIgnoreCase(evaluationMode)
+                && !isCompleted(state, "round_2")) {
+            return "round_2";
+        }
+        if ("round_2_completed".equals(completionType)
+                && "COMPREHENSIVE".equalsIgnoreCase(evaluationMode)
+                && !isCompleted(state, "round_3")) {
+            return "round_3";
         }
         for (AgentStructuredOutputs.AssistantAction action : actions == null ? List.<AgentStructuredOutputs.AssistantAction>of() : actions) {
             String module = targetModuleForAction(action == null ? "" : action.getType());
@@ -706,11 +979,14 @@ public class ReactAgentRouter {
         if (containsAny(combined, "试题", "笔试")) {
             return "questions";
         }
-        if (containsAny(combined, "场景", "语音")) {
-            return "audio";
+        if (containsAny(combined, "一面", "技术一面")) {
+            return "round_1";
         }
-        if (containsAny(combined, "综合报告", "报告")) {
-            return "report";
+        if (containsAny(combined, "二面", "技术二面")) {
+            return "round_2";
+        }
+        if (containsAny(combined, "三面", "HR")) {
+            return "round_3";
         }
         return "NONE";
     }
@@ -728,22 +1004,17 @@ public class ReactAgentRouter {
             if (action == null || action.getType() == null) {
                 continue;
             }
-            if ("choose_special".equals(action.getType())
-                    || "upload_resume_special".equals(action.getType())) {
-                return "SPECIAL";
-            }
-            if ("choose_comprehensive".equals(action.getType())
-                    || "upload_resume_comprehensive".equals(action.getType())
-                    || "go_report".equals(action.getType())) {
+            if ("go_resume".equals(action.getType())
+                    || "go_questions".equals(action.getType())
+                    || "go_round_1".equals(action.getType())
+                    || "go_round_2".equals(action.getType())
+                    || "go_round_3".equals(action.getType())) {
                 return "COMPREHENSIVE";
             }
         }
         String combined = (value(params, "question") + "\n" + (reply == null ? "" : reply)).trim();
-        if (containsAny(combined, "综合测评", "综合报告")) {
+        if (containsAny(combined, "AIview", "AI 模拟面试", "面试")) {
             return "COMPREHENSIVE";
-        }
-        if (containsAny(combined, "专项测评", "专项简历", "专项试题", "专项场景")) {
-            return "SPECIAL";
         }
         return "UNKNOWN";
     }
@@ -759,7 +1030,7 @@ public class ReactAgentRouter {
     private String normalizeTargetModule(String rawTargetModule, String fallback) {
         String targetModule = rawTargetModule == null ? "" : rawTargetModule.trim().toLowerCase();
         return switch (targetModule) {
-            case "resume", "questions", "audio", "report", "none" -> targetModule.toUpperCase().equals("NONE") ? "NONE" : targetModule;
+            case "resume", "questions", "round_1", "round_2", "round_3", "none" -> targetModule.toUpperCase().equals("NONE") ? "NONE" : targetModule;
             default -> fallback == null || fallback.isBlank() ? "NONE" : fallback;
         };
     }
@@ -859,10 +1130,11 @@ public class ReactAgentRouter {
 
     private String targetModuleForAction(String actionType) {
         return switch (actionType == null ? "" : actionType.trim()) {
-            case "upload_resume_special", "upload_resume_comprehensive", "go_resume", "view_resume_history" -> "resume";
-            case "go_questions", "view_questions_history" -> "questions";
-            case "go_audio", "view_audio_history" -> "audio";
-            case "go_report" -> "report";
+            case "go_resume" -> "resume";
+            case "go_questions" -> "questions";
+            case "go_round_1" -> "round_1";
+            case "go_round_2" -> "round_2";
+            case "go_round_3" -> "round_3";
             default -> "NONE";
         };
     }
@@ -898,23 +1170,15 @@ public class ReactAgentRouter {
      */
     private String buildUserContent(String agentKey, Map<String, Object> params) {
         return switch (agentKey) {
-            case "resume-analysis" -> "岗位描述：" + value(params, "jobDesc")
-                    + "\n简历内容：" + value(params, "resumeText");
-            case "scenario-evaluation" -> {
-                Object qa = params.get("questionsAndAnswers");
-                int count = (qa instanceof List<?> list) ? list.size() : 0;
-                StringBuilder builder = new StringBuilder();
-                builder.append("岗位名称：").append(value(params, "jobName")).append("\n");
-                builder.append("岗位描述：").append(value(params, "jobDescription")).append("\n");
-                builder.append("题目数量：").append(count).append("\n");
-                builder.append("面试题目与回答(JSON)：").append(GSON.toJson(qa));
-                yield builder.toString();
-            }
-            case "interview-assistant" -> {
+            case "ai-resume-analysis" -> "岗位名称：" + value(params, "jobName")
+                    + "\n岗位要求：" + value(params, "jobRequirements")
+                    + "\n简历内容：" + value(params, "resumeContent");
+            case "ai-interview-assistant" -> {
                 StringBuilder builder = new StringBuilder();
                 builder.append("当前用户问题：").append(value(params, "question")).append("\n");
                 builder.append("当前岗位ID：").append(value(params, "currentJobId")).append("\n");
                 builder.append("用户已选择的测评模式：").append(value(params, "evaluationMode")).append("\n");
+                builder.append("当前 AIview 通过标准(JSON)：").append(GSON.toJson(params.get("assessmentThresholds"))).append("\n");
                 builder.append("当前测评进度摘要：").append(summarizeCurrentState(asMap(params.get("currentState")))).append("\n");
                 builder.append("当前测评进度(JSON)：").append(GSON.toJson(params.get("currentState"))).append("\n");
                 builder.append("会话历史摘要：").append(value(params, "conversationSummary")).append("\n");
@@ -939,8 +1203,12 @@ public class ReactAgentRouter {
                 + stepSummary(state, "resume")
                 + "；试题="
                 + stepSummary(state, "questions")
-                + "；场景="
-                + stepSummary(state, "audio")
+                + "；一面="
+                + stepSummary(state, "round_1")
+                + "；二面="
+                + stepSummary(state, "round_2")
+                + "；三面="
+                + stepSummary(state, "round_3")
                 + "；总体="
                 + overallSummary(asMap(state.get("overall")));
     }

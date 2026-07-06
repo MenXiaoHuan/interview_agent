@@ -226,7 +226,7 @@
                 <span class="feature-icon">🔄</span>
                 <div class="feature-content">
                   <h4>持续学习</h4>
-                  <p>沉淀历史记录与成长轨迹，结合周/月榜激励持续练习。</p>
+                  <p>通过 AIview 对话沉淀面试过程与成长轨迹，结合周/月榜激励持续练习。</p>
                 </div>
               </div>
               <div class="feature-item">
@@ -381,10 +381,10 @@
 import { ref, onMounted, nextTick, onUnmounted, computed, watch } from 'vue';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
-import { API } from '@/utils/api';
+import { API } from '@/utils/api/pages/personal-center';
 import { getUserSession, setUserSessionPatch, subscribeUserSession, getSessionToken } from '@/utils/user-session';
 import { applyAvatarFallback, resolveUserAvatar } from '@/utils/avatar';
-import request from '@/utils/request';
+import request from '@/utils/api/request';
 
 const showModal = ref(false);
 const userAvatar = ref(resolveUserAvatar(getUserSession()));

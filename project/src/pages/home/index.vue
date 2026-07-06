@@ -42,33 +42,10 @@
             <path d="M6.5 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
           <div class="card-text">
-            <div class="card-title">反馈进程查询</div>
+            <div class="card-title">反馈进程</div>
             <div class="card-sub">查看反馈处理状态与回复</div>
           </div>
           <span class="card-badge badge-feedback">反馈</span>
-        </div>
-        <div class="action-card action-career" @click="openInterviewJobs">
-          <svg class="card-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M4 9h16v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V9Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            <path d="M9 9V6h6v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M12 13v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <div class="card-text">
-            <div class="card-title">推荐求职网站</div>
-            <div class="card-sub">Boss直聘</div>
-          </div>
-          <span class="card-badge badge-career">求职</span>
-        </div>
-        <div class="action-card action-history" @click="goToHistory">
-          <svg class="card-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M5 5h14v14H5z" stroke="currentColor" stroke-width="2"/>
-            <path d="M8 14l3-3 3 2 2-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <div class="card-text">
-            <div class="card-title">历史记录</div>
-            <div class="card-sub">回看表现，持续优化提升</div>
-          </div>
-          <span class="card-badge badge-history">记录</span>
         </div>
         <div class="action-card action-profile" @click="goToPersonalCenter">
           <svg class="card-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -320,7 +297,7 @@
               <div class="carousel-text">
                 <div class="carousel-title">效率提升</div>
                 <ul class="tips-list">
-                  <li class="tips-item">用首页入口直达历史记录与个人中心，快速定位上次薄弱题与场景</li>
+                  <li class="tips-item">用首页入口直达个人中心，快速检查个人资料、偏好设置与阶段目标</li>
                   <li class="tips-item">每次面试后写 3 点改进事项，并在下一次练习前逐项检视与复盘</li>
                   <li class="tips-item">针对薄弱点制定 1–2 个刻意练习目标，限定时间完成并记录成果</li>
                 </ul>
@@ -358,11 +335,10 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
-import SmartIcon from '@/components/SmartIcon.vue'
-import { API, getBlessings, createBlessing as apiCreateBlessing, updateBlessing as apiUpdateBlessing, deleteBlessing as apiDeleteBlessing } from '@/utils/api'
+import { API, getBlessings, createBlessing as apiCreateBlessing, updateBlessing as apiUpdateBlessing, deleteBlessing as apiDeleteBlessing } from '@/utils/api/pages/home'
 import { getUserSession, setUserSessionPatch, refreshUserSessionFromServer, subscribeUserSession, getSessionToken } from '@/utils/user-session'
 import { applyAvatarFallback, resolveUserAvatar } from '@/utils/avatar'
-import request from '@/utils/request'
+import request from '@/utils/api/request'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -880,13 +856,9 @@ const smoothPush = async (url) => {
   }, 180)
 }
 const goToJobSelection = () => smoothPush('/pages/job-selection/index')
-const goToHistory = () => smoothPush('/pages/history/index')
 const goToPersonalCenter = () => smoothPush('/pages/personal-center/index')
 const openAlgorithmPractice = () => {
   if (typeof window !== 'undefined') window.open('https://codetop.cc/login', '_blank')
-}
-const openInterviewJobs = () => {
-  if (typeof window !== 'undefined') window.open('https://www.bosszhipin.com/', '_blank')
 }
 const goToChatHall = () => smoothPush('/pages/chat-hall/index')
 const goToLeaderboard = () => smoothPush('/pages/leaderboard/index')
@@ -1208,8 +1180,6 @@ $shadows-large: multiple-box-shadow(150);
 .card-badge { position: absolute; right: 14px; top: 14px; padding: 2px 10px; border-radius: 999px; font-size: 12px; color: #fff; backdrop-filter: blur(4px); }
 .badge-alg { background: linear-gradient(90deg,#00f5ff 0%,#4a6fff 100%); }
 .badge-feedback { background: linear-gradient(90deg,#4A6FFF 0%,#7c4dff 100%); }
-.badge-career { background: linear-gradient(90deg,#00e5ff 0%,#14c5b4 100%); }
-.badge-history { background: linear-gradient(90deg,#ff6ec7 0%,#a74cff 100%); }
 .badge-profile { background: linear-gradient(90deg,#7fb069 0%,#90c695 100%); }
 .badge-chat { background: linear-gradient(90deg,#4a6fff 0%,#7c4dff 100%); }
 .badge-rank { background: linear-gradient(90deg,#ffd54f 0%,#ff9100 100%); }
@@ -1305,10 +1275,6 @@ $shadows-large: multiple-box-shadow(150);
 .my-detail-simple { display:flex; flex-direction:column; gap:8px; }
 .my-detail-simple .line { color:#1a1f35; }
 .home-cosmic-container.eye-care-mode .my-detail-simple .line { color:#153023; }
-.action-career { border-color: rgba(0,229,255,0.35); box-shadow: 0 8px 40px 0 #00e5ff22, 0 1.5px 6px #14c5b422; }
-.action-career:hover { box-shadow: 0 18px 60px 0 #00e5ff44, 0 4px 18px #14c5b433; }
-.action-history { border-color: rgba(255,110,199,0.50); box-shadow: 0 8px 40px 0 rgba(255,110,199,0.28), 0 1.5px 6px rgba(255,145,0,0.20); }
-.action-history:hover { box-shadow: 0 18px 60px 0 rgba(255,110,199,0.42), 0 4px 18px rgba(255,145,0,0.30); }
 .action-profile { border-color: rgba(127,176,105,0.35); box-shadow: 0 8px 40px 0 #7fb06933, 0 1.5px 6px #90c69522; }
 .action-profile:hover { box-shadow: 0 18px 60px 0 #7fb06955, 0 4px 18px #90c69544; }
 .action-chat { border-color: rgba(0,229,255,0.50); box-shadow: 0 8px 40px 0 rgba(0,229,255,0.28), 0 1.5px 6px rgba(20,197,180,0.20); }
@@ -1395,10 +1361,6 @@ $shadows-large: multiple-box-shadow(150);
 .home-cosmic-container.eye-care-mode .action-card:hover { box-shadow: 0 16px 60px 0 rgba(127, 176, 105, 0.25), 0 2px 12px rgba(144, 198, 149, 0.15); border-color: rgba(127, 176, 105, 0.4); }
 .home-cosmic-container.eye-care-mode .action-feedback { border-color: rgba(74,111,255,0.30); box-shadow: 0 8px 40px 0 rgba(74,111,255,0.22), 0 1.5px 6px rgba(124,77,255,0.18); }
 .home-cosmic-container.eye-care-mode .action-feedback:hover { box-shadow: 0 18px 60px 0 rgba(74,111,255,0.34), 0 4px 18px rgba(124,77,255,0.26); }
-.home-cosmic-container.eye-care-mode .action-career { border-color: rgba(0,229,255,0.30); box-shadow: 0 8px 40px 0 rgba(0,229,255,0.20), 0 1.5px 6px rgba(20,197,180,0.18); }
-.home-cosmic-container.eye-care-mode .action-career:hover { box-shadow: 0 18px 60px 0 rgba(0,229,255,0.32), 0 4px 18px rgba(20,197,180,0.26); }
-.home-cosmic-container.eye-care-mode .action-history { border-color: rgba(124,77,255,0.30); box-shadow: 0 8px 40px 0 rgba(124,77,255,0.20), 0 1.5px 6px rgba(0,229,255,0.16); }
-.home-cosmic-container.eye-care-mode .action-history:hover { box-shadow: 0 18px 60px 0 rgba(124,77,255,0.32), 0 4px 18px rgba(0,229,255,0.24); }
 .home-cosmic-container.eye-care-mode .action-profile { border-color: rgba(127,176,105,0.35); box-shadow: 0 8px 40px 0 rgba(127,176,105,0.20), 0 1.5px 6px rgba(144,198,149,0.16); }
 .home-cosmic-container.eye-care-mode .action-profile:hover { box-shadow: 0 18px 60px 0 rgba(127,176,105,0.32), 0 4px 18px rgba(144,198,149,0.24); }
 .home-cosmic-container.eye-care-mode .action-chat { border-color: rgba(74,111,255,0.30); box-shadow: 0 8px 40px 0 rgba(74,111,255,0.20), 0 1.5px 6px rgba(124,77,255,0.18); }
@@ -1406,8 +1368,6 @@ $shadows-large: multiple-box-shadow(150);
 .home-cosmic-container.eye-care-mode .action-rank { border-color: rgba(255,145,0,0.35); box-shadow: 0 8px 40px 0 rgba(255,145,0,0.22), 0 1.5px 6px rgba(255,213,79,0.18); }
 .home-cosmic-container.eye-care-mode .action-rank:hover { box-shadow: 0 18px 60px 0 rgba(255,145,0,0.34), 0 4px 18px rgba(255,213,79,0.26); }
 .home-cosmic-container.eye-care-mode .badge-alg { background: linear-gradient(90deg,#7fb069 0%,#90c695 100%); }
-.home-cosmic-container.eye-care-mode .badge-career { background: linear-gradient(90deg,#7fb069 0%,#90c695 100%); }
-.home-cosmic-container.eye-care-mode .badge-history { background: linear-gradient(90deg,#b3c27d 0%,#7fb069 100%); }
 .home-cosmic-container.eye-care-mode .badge-profile { background: linear-gradient(90deg,#7fb069 0%,#90c695 100%); }
 .home-cosmic-container.eye-care-mode .title-text { background: linear-gradient(90deg, #7fb069 10%, #90c695 90%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 18px rgba(127, 176, 105, 0.3), 0 0 8px rgba(144, 198, 149, 0.2); }
 .home-cosmic-container.eye-care-mode .subtitle { color: #a8c69f; }

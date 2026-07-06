@@ -1,0 +1,54 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:interview_agent_test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      mode: never
+  ai:
+    deepseek:
+      api-key: test-key
+      base-url: https://api.deepseek.com
+      chat:
+        options:
+          model: deepseek-v4-flash
+          temperature: 0.5
+
+jwt:
+  secret: test-only-change-me-please-use-at-least-32-bytes
+  expiration: 604800000
+
+server:
+  ssl:
+    enabled: false
+
+storage:
+  minio:
+    endpoint: http://localhost:9000
+    access-key: test
+    secret-key: test
+    bucket: interview-agent-test
+
+xunfei:
+  appid: test
+  api-key: test
+  api-secret: test
+  tts:
+    host-url: https://tts-api.xfyun.cn/v2/tts
+    tte: UTF8
+    vcn: x4_yezi
+    pitch: 50
+    speed: 50
+  ost:
+    appId: test
+    apiKey: test
+    apiSecret: test
+    upload-url: https://upload-ost-api.xfyun.cn/file/upload
+    create-task-url: https://ost-api.xfyun.cn/v2/ost/pro_create
+    query-task-url: https://ost-api.xfyun.cn/v2/ost/query
+
+app:
+  swagger:
+    enabled: false

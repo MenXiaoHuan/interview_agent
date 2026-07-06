@@ -25,54 +25,29 @@
 			"navigationBarTitleText": "岗位选择"
 		}
 	},{
-		"path": "pages/interview-interface/index",
+		"path": "pages/ai-hall/index",
 		"style": {
-			"navigationBarTitleText": "模拟面试"
+                        "navigationBarTitleText": "面试大厅"
 		}
 	},{
-		"path": "pages/interview-ai/index",
+                "path": "pages/ai-chat/index",
 		"style": {
-			"navigationBarTitleText": "智能面试"
+                        "navigationBarTitleText": "AIview"
 		}
 	},{
-		"path": "pages/interview-resume/index",
+		"path": "pages/ai-resume/index",
 		"style": {
-			"navigationBarTitleText": "简历评测"
+                        "navigationBarTitleText": "简历投递"
 		}
 	},{
-		"path": "pages/interview-questions/index",
-		"style": {
-			"navigationBarTitleText": "试题作答"
-		}
-},{
-		"path": "pages/interview-scenario/index",
-		"style": {
-			"navigationBarTitleText": "场景评测"
-		}
-	},{
-		"path": "pages/history/index",
-		"style": {
-			"navigationBarTitleText": "历史记录"
-		}
-	},{
-		"path": "pages/comprehensive-report/index",
-		"style": {
-			"navigationBarTitleText": "综合报告"
-		}
-	},{
-		"path": "pages/comprehensive-resume/index",
-		"style": {
-			"navigationBarTitleText": "简历评测"
-		}
-	},{
-		"path": "pages/comprehensive-questions/index",
+		"path": "pages/ai-questions/index",
 		"style": {
 			"navigationBarTitleText": "试题作答"
 		}
 	},{
-		"path": "pages/comprehensive-scenario/index",
+		"path": "pages/ai-scenario/index",
 		"style": {
-			"navigationBarTitleText": "场景评测"
+                        "navigationBarTitleText": "AI 模拟面试"
 		}
 	},{
 		"path": "pages/personal-center/index",
@@ -102,16 +77,6 @@
 		"path": "pages/admin/user-permission/index",
 		"style": {
 			"navigationBarTitleText": "用户权限管理"
-		}
-	},{
-		"path": "pages/admin/question-management/index",
-		"style": {
-			"navigationBarTitleText": "专项评测管理"
-		}
-	},{
-		"path": "pages/admin/scenario-management/index",
-		"style": {
-			"navigationBarTitleText": "场景评测管理"
 		}
 	},{
 		"path": "pages/admin/job-category/index",

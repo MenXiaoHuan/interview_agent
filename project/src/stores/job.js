@@ -1,7 +1,20 @@
 import { defineStore } from 'pinia';
-import request from '@/utils/request';
-import { API } from '@/utils/api';
-import { getJobsByCategoryId } from '@/utils/api';
+import request from '@/utils/api/request';
+import { BASE_URL } from '@/utils/api/api-config';
+
+const JOB_API = {
+  CATEGORIES: `${BASE_URL}/api/job-categories/tree`,
+  DETAIL: (jobId) => `${BASE_URL}/api/job/${jobId}`,
+  JOBS_BY_CATEGORY: `${BASE_URL}/api/job`,
+};
+
+function getJobsByCategoryId(categoryId) {
+  return request({
+    url: JOB_API.JOBS_BY_CATEGORY,
+    method: 'get',
+    params: { categoryId },
+  });
+}
 
 export const useJobStore = defineStore('job', {
   state: () => ({
@@ -27,7 +40,7 @@ export const useJobStore = defineStore('job', {
       this.loading.categories = true;
       this.error.categories = null;
       try {
-        const response = await request.get(API.JOB.CATEGORIES);
+        const response = await request.get(JOB_API.CATEGORIES);
         if (response.code === 200) {
           // 保存树形结构数据
           this.categoryTree = Array.isArray(response.data) 
@@ -90,7 +103,7 @@ export const useJobStore = defineStore('job', {
       this.loading.jobDetail = true;
       this.error.jobDetail = null;
       try {
-        const response = await request.get(API.JOB.DETAIL(jobId));
+        const response = await request.get(JOB_API.DETAIL(jobId));
         
         if (response.code === 200) {
           this.currentJob = response.data;

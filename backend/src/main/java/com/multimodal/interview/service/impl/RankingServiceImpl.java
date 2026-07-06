@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 综合测评排行榜服务实现。
+ * AIview 排行榜服务实现。
  */
 @Service
 public class RankingServiceImpl implements RankingService {
@@ -39,8 +39,8 @@ public class RankingServiceImpl implements RankingService {
      * {@inheritDoc}
      */
     @Override
-    public List<RankingResponse> topScenario(Long jobId, int size) {
-        return withDenseRank(rankingMapper.topScenario(jobId, size));
+    public List<RankingResponse> topRound(String roundType, Long jobId, int size) {
+        return withDenseRank(rankingMapper.topRound(roundType, jobId, size));
     }
 
     private List<RankingResponse> withDenseRank(List<RankingResponse> list) {
@@ -59,4 +59,3 @@ public class RankingServiceImpl implements RankingService {
         return ranked;
     }
 }
-

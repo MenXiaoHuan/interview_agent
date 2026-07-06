@@ -15,14 +15,16 @@
       <div class="rank-container">
     <div class="rank-header">
       <h1 class="title">排行榜</h1>
-      <div class="rank-mode-tabs">
-        <button class="tab-btn" :class="{active: mode==='comprehensive'}" @click="switchMode('comprehensive')">综合评测</button>
-        <button class="tab-btn" :class="{active: mode==='specialized'}" @click="switchMode('specialized')">专项评测</button>
-      </div>
       <div class="rank-tabs">
-        <button class="tab-btn" :class="{active: rankType==='resume'}" @click="switchType('resume')">简历榜</button>
-        <button class="tab-btn" :class="{active: rankType==='question'}" @click="switchType('question')">试题榜</button>
-        <button class="tab-btn" :class="{active: rankType==='scenario'}" @click="switchType('scenario')">场景榜</button>
+        <button
+          v-for="stage in rankStages"
+          :key="stage.type"
+          class="tab-btn"
+          :class="{ active: rankType === stage.type }"
+          @click="switchType(stage.type)"
+        >
+          {{ stage.label }}
+        </button>
       </div>
       
     </div>
@@ -34,7 +36,7 @@
             <img v-if="u.avatarUrl" class="avatar" :src="u.avatarUrl" alt="avatar" />
             <span>{{ u.nickname || '匿名' }}</span>
           </div>
-          <div class="rank-score"><span class="score-label">总分：</span><span class="score-val">{{ formatScoreInt(u.score) }}</span><span>分</span></div>
+          <div class="rank-score"><span class="score-label">最高分：</span><span class="score-val">{{ formatScoreInt(u.score) }}</span><span>分</span></div>
         </div>
         <div v-if="!list.length && !loading" class="empty">暂无数据</div>
       </div>
@@ -49,26 +51,24 @@
 import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
-import { API } from '@/utils/api'
+import { API } from '@/utils/api/pages/leaderboard'
 
 const list = ref([])
 const loading = ref(false)
-const pageSize = 10
 const topN = computed(() => list.value.slice(0, 10))
 const pagedList = computed(() => topN.value)
 
 const userStore = useUserStore()
 const { isEyeCareMode } = storeToRefs(userStore)
-const mode = ref('comprehensive')
 const rankType = ref('resume')
+const rankStages = [
+  { type: 'resume', label: '简历榜', endpoint: API.RANK.RESUME },
+  { type: 'question', label: '试题榜', endpoint: API.RANK.QUESTION },
+  { type: 'round_1', label: '一面榜', endpoint: API.RANK.ROUND_1 },
+  { type: 'round_2', label: '二面榜', endpoint: API.RANK.ROUND_2 },
+  { type: 'round_3', label: '三面榜', endpoint: API.RANK.ROUND_3 }
+]
  
-
-const formatScore = (s) => {
-  if (s === null || s === undefined) return ''
-  const n = Number(s)
-  if (Number.isNaN(n)) return String(s)
-  return Math.round(n * 10) / 10
-}
 
 const formatScoreInt = (s) => {
   const n = Number(s)
@@ -105,19 +105,9 @@ const loadRank = async () => {
   loading.value = true
   try {
     const token = getSessionToken()
-    const pathMapComp = {
-      resume: API.RANK.COMPREHENSIVE.RESUME,
-      question: API.RANK.COMPREHENSIVE.QUESTION,
-      scenario: API.RANK.COMPREHENSIVE.SCENARIO
-    }
-    const pathMapSpec = {
-      resume: API.RANK.SPECIALIZED.RESUME,
-      question: API.RANK.SPECIALIZED.QUESTION,
-      scenario: API.RANK.SPECIALIZED.SCENARIO
-    }
+    const currentStage = rankStages.find((item) => item.type === rankType.value) || rankStages[0]
     const qp = ['size=10']
-    const path = mode.value === 'specialized' ? pathMapSpec[rankType.value] : pathMapComp[rankType.value]
-    const url = `${path}${qp.length ? ('?' + qp.join('&')) : ''}`
+    const url = `${currentStage.endpoint}${qp.length ? ('?' + qp.join('&')) : ''}`
     const res = await fetch(url, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} })
     if (!res.ok) { list.value = []; return }
     const resp = await res.json()
@@ -132,7 +122,6 @@ const loadRank = async () => {
 }
 
 const switchType = (t) => { if (rankType.value !== t) { rankType.value = t; loadRank() } }
-const switchMode = (m) => { if (mode.value !== m) { mode.value = m; loadRank() } }
 
 onMounted(() => { loadRank() })
 
@@ -159,11 +148,10 @@ $shadows-small: multiple-box-shadow(1000); $shadows-medium: multiple-box-shadow(
 .back-button svg { color: #7c4dff; filter: drop-shadow(0 0 5px rgba(124, 77, 255, 0.5)); }
 .rank-container { max-width: 960px; margin: 0 auto; padding: 16px; border-radius: 24px; background: rgba(20,24,40,0.86); border: 2px solid rgba(124,77,255,0.18); box-shadow: 0 8px 40px 0 #7c4dff22; }
 .rank-container { width: 720px; height: 500px; display: flex; flex-direction: column; }
-.rank-header { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px; margin-bottom: 12px; }
+.rank-header { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; margin-bottom: 12px; }
 .title { margin: 0; font-size: 1.6rem; background: linear-gradient(90deg,#ffd54f 0%, #ff9100 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: 0.5px; }
-.rank-mode-tabs { margin-left: auto; display: flex; gap: 8px; }
-.rank-tabs { display: flex; gap: 8px; margin-left: 8px; padding: 4px; border-radius: 12px; background: rgba(255,190,0,0.08); border: 1px solid rgba(255,190,0,0.25); box-shadow: 0 4px 20px rgba(255,190,0,0.12); }
-.tab-btn { padding: 6px 14px; border-radius: 10px; border: 1px solid rgba(255,190,0,0.25); background: rgba(255,190,0,0.06); color: #ffcc80; cursor: pointer; transition: all .2s ease; }
+.rank-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-left: 8px; padding: 4px; border-radius: 12px; background: rgba(255,190,0,0.08); border: 1px solid rgba(255,190,0,0.25); box-shadow: 0 4px 20px rgba(255,190,0,0.12); }
+.tab-btn { padding: 6px 12px; border-radius: 10px; border: 1px solid rgba(255,190,0,0.25); background: rgba(255,190,0,0.06); color: #ffcc80; cursor: pointer; transition: all .2s ease; }
 .tab-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,190,0,0.18); }
 .tab-btn.active { background: linear-gradient(90deg,#ffd54f 0%, #ff9100 100%); color: #1a1f35; font-weight: 700; border: none; box-shadow: 0 8px 24px rgba(255,190,0,0.28); }
  

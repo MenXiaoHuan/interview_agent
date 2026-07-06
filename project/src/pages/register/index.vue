@@ -309,8 +309,8 @@
 <script setup>
 import { reactive, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import request from "@/utils/request";
-import { API } from "@/utils/api";
+import request from "@/utils/api/request";
+import { API } from "@/utils/api/pages/register";
 
 const router = useRouter();
 const usernameError = ref("");

@@ -1,5 +1,7 @@
-import { API } from '@/utils/api'
-import request from '@/utils/request'
+import request from '@/utils/api/request'
+import { BASE_URL } from '@/utils/api/api-config'
+
+const USER_PROFILE_URL = `${BASE_URL}/api/user/profile`
 
 const KEY = 'userInfo'
 const TOKEN_KEY = 'token'
@@ -81,7 +83,7 @@ export async function refreshUserSessionFromServer() {
   try {
     const token = getSessionToken()
     if (!token) return getUserSession()
-    const resp = await request({ url: API.USER.PROFILE, method: 'GET' })
+    const resp = await request({ url: USER_PROFILE_URL, method: 'GET' })
     const data = resp?.data || {}
     if (resp.code === 200) {
       return setUserSessionPatch(data)

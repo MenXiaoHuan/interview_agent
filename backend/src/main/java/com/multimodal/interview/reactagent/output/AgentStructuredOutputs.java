@@ -25,196 +25,129 @@ public final class AgentStructuredOutputs {
     }
 
     @Data
-    public static class ResumeAnalysisResult {
-        private Integer score;
-        private ResumeFeedback feedback;
-        @JsonProperty("competencies_score")
-        private ResumeCompetenciesScore competenciesScore;
-    }
-
-    @Data
-    public static class ResumeFeedback {
-        private String advantages;
-        private String disadvantages;
-        @JsonProperty("improvement_suggestions")
-        private String improvementSuggestions;
-    }
-
-    @Data
-    public static class ResumeCompetenciesScore {
-        @JsonProperty("professional_skills")
-        private Integer professionalSkills;
-        @JsonProperty("project_execution")
-        private Integer projectExecution;
-        private Integer innovation;
-        private Integer communication;
-        private Integer adaptability;
-    }
-
-    @Data
-    public static class ScenarioEvaluationResult {
-        private Integer totalScore;
-        private List<AbilityScore> abilities;
-        private List<String> questionSuggestions;
-        private String pronunciationAdvice;
-        private String expressionAdvice;
-    }
-
-    @Data
-    public static class AbilityScore {
-        private String name;
-        private Integer score;
-        private String desc;
-    }
-
-    @Data
-    public static class ComprehensiveReportResult {
-        private String feedbackTitle;
-        private String feedbackText;
-        private StrengthAnalysis strengthAnalysis;
-        private ImprovementAnalysis improvementAnalysis;
-        private String learningPathRecommendation;
-    }
-
-    @Data
-    public static class StrengthAnalysis {
-        private List<String> strengths;
-    }
-
-    @Data
-    public static class ImprovementAnalysis {
-        private List<String> improvements;
-    }
-
-    @Data
     public static class ScenarioQuestionGenerationResult {
-        private String question;
+        private String question = "请结合一次真实项目经历，说明你如何分析问题、制定方案并推动落地？";
     }
 
     @Data
     public static class ScenarioAudioEvaluationResult {
-        private Integer totalScore;
-        private AudioDimensions dimensions;
-        private PronunciationResult pronunciation;
-        private FacialExpressionResult facialExpression;
-        private SpeechRateResult speechRate;
-        private String overallComment;
-        private List<AudioQuestionResult> questions;
-        private List<String> keyImprovements;
+        private Integer totalScore = 0;
+        private AudioDimensions dimensions = new AudioDimensions();
+        private PronunciationResult pronunciation = new PronunciationResult();
+        private FacialExpressionResult facialExpression = new FacialExpressionResult();
+        private SpeechRateResult speechRate = new SpeechRateResult();
+        private String overallComment = "AI 评测结果暂时不完整，请以当前作答记录为准重新评测或继续下一步。";
+        private List<AudioQuestionResult> questions = List.of();
+        private List<String> keyImprovements = List.of("补充更完整的作答内容", "按题目要求给出结构化回答");
     }
 
     @Data
     public static class AudioDimensions {
-        private Integer fluency;
-        private Integer relevance;
-        private Integer adaptability;
-        private Integer professionalism;
-        private Integer completeness;
+        private Integer fluency = 0;
+        private Integer relevance = 0;
+        private Integer adaptability = 0;
+        private Integer professionalism = 0;
+        private Integer completeness = 0;
     }
 
     @Data
     public static class PronunciationResult {
-        private Integer score;
-        private String comment;
+        private Integer score = 0;
+        private String comment = "暂无稳定的表达层评测结果。";
     }
 
     @Data
     public static class FacialExpressionResult {
-        private Integer score;
-        private List<String> suggestions;
+        private Integer score = 0;
+        private List<String> suggestions = List.of("保持自然稳定的面试状态");
     }
 
     @Data
     public static class SpeechRateResult {
-        private String currentRate;
-        private List<String> suggestions;
+        private String currentRate = "unknown";
+        private List<String> suggestions = List.of("控制语速，先结论后展开");
     }
 
     @Data
     public static class AudioQuestionResult {
-        private String question;
-        private String userAnswer;
-        private Integer score;
-        private String comment;
-        private List<String> strengths;
-        private List<String> weaknesses;
-        private String improvement;
+        private String question = "";
+        private String userAnswer = "";
+        private Integer score = 0;
+        private String comment = "本题评测结果暂时不完整，建议重新作答或补充关键细节。";
+        private List<String> strengths = List.of();
+        private List<String> weaknesses = List.of("未获得稳定的结构化评测结果");
+        private String improvement = "补充更具体的背景、动作和结果。";
     }
 
     @Data
-    public static class ComprehensiveResumeAnalysisResult {
-        private Integer score;
-        private Integer skillMatch;
-        private Integer experienceMatch;
-        private Integer educationMatch;
-        private Integer communicationSkill;
-        private Integer leadershipSkill;
-        private List<String> suggestions;
+    public static class AiResumeAnalysisResult {
+        private Integer score = 0;
+        private List<String> suggestions = List.of("补充与岗位要求直接相关的项目证据和量化结果。");
     }
 
     @Data
-    public static class ComprehensiveQuestionGenerationResult {
+    public static class AiQuestionGenerationResult {
         @JsonProperty("选择题")
-        private List<ChoiceQuestionItem> choiceQuestions;
+        private List<ChoiceQuestionItem> choiceQuestions = List.of();
         @JsonProperty("填空题")
-        private List<FillBlankQuestionItem> fillBlankQuestions;
+        private List<FillBlankQuestionItem> fillBlankQuestions = List.of();
         @JsonProperty("场景题")
-        private List<ScenarioQuestionItem> scenarioQuestions;
+        private List<ScenarioQuestionItem> scenarioQuestions = List.of();
     }
 
     @Data
     public static class ChoiceQuestionItem {
-        private String question;
-        private List<String> options;
-        private String answer;
-        private Integer score;
+        private String question = "";
+        private List<String> options = List.of();
+        private String answer = "";
+        private Integer score = 0;
     }
 
     @Data
     public static class FillBlankQuestionItem {
-        private String question;
-        private String answer;
-        private Integer score;
+        private String question = "";
+        private String answer = "";
+        private Integer score = 0;
     }
 
     @Data
     public static class ScenarioQuestionItem {
-        private String question;
-        private String answer;
-        private Integer score;
+        private String question = "";
+        private String answer = "";
+        private Integer score = 0;
     }
 
     @Data
     public static class ScenarioQuestionScoringResult {
-        private List<ScenarioQuestionScoreItem> examData;
+        private List<ScenarioQuestionScoreItem> examData = List.of();
     }
 
     @Data
     public static class ScenarioQuestionScoreItem {
-        private Integer score;
-        private String analysis;
+        private Integer score = 0;
+        private String analysis = "本题评分暂时不完整，请重新提交或补充作答内容。";
     }
 
     @Data
     public static class QuestionAnalysisResult {
-        private String analysis;
+        private String analysis = "本题解析暂时不可用，请结合题干、正确答案和关键知识点进行复盘。";
     }
 
     @Data
     public static class InterviewAssistantResult {
-        private String reply;
-        private List<AssistantAction> actions;
-        private String intent;
-        private String targetModule;
-        private String targetMode;
-        private String targetJobHint;
-        private Boolean targetJobConfirmed;
-        private Boolean completionAcknowledged;
+        private String reply = "我来帮你安排下一步。";
+        private List<AssistantAction> actions = List.of();
+        private String intent = "general_consultation";
+        private String targetModule = "NONE";
+        private String targetMode = "UNKNOWN";
+        private String targetJobHint = "";
+        private Boolean targetJobConfirmed = false;
+        private Boolean completionAcknowledged = false;
     }
 
     @Data
     public static class AssistantAction {
-        private String type;
-        private String label;
+        private String type = "";
+        private String label = "";
     }
 }

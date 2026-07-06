@@ -223,7 +223,7 @@ import {
   updateUserEmail, 
   updateUserPhone, 
   updateUserGender 
-} from '@/utils/api';
+} from '@/utils/api/pages/admin';
 import { applyAvatarFallback, resolveUserAvatar } from '@/utils/avatar';
 
 const userStore = useUserStore();

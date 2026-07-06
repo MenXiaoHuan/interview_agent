@@ -10,26 +10,20 @@ import './styles/theme.css';  // 引入全局主题样式
 
 // === 预加载所有页面和组件 ===
 // 组件预加载
-import(/* webpackPrefetch: true */ '@/components/SmartIcon.vue');
 import(/* webpackPrefetch: true */ '@/components/RadarChart.vue');
 import(/* webpackPrefetch: true */ '@/components/FancySelect.vue');
 import(/* webpackPrefetch: true */ '@/components/Modal.vue');
 import(/* webpackPrefetch: true */ '@/components/JobSelector.vue');
 // 页面预加载
-import(/* webpackPrefetch: true */ '@/pages/interview-scenario/index.vue');
-import(/* webpackPrefetch: true */ '@/pages/comprehensive-scenario/index.vue');
-import(/* webpackPrefetch: true */ '@/pages/comprehensive-resume/index.vue');
-import(/* webpackPrefetch: true */ '@/pages/history/index.vue');
+import(/* webpackPrefetch: true */ '@/pages/ai-scenario/index.vue');
+import(/* webpackPrefetch: true */ '@/pages/ai-resume/index.vue');
 import(/* webpackPrefetch: true */ '@/pages/personal-center/index.vue');
-import(/* webpackPrefetch: true */ '@/pages/interview-ai/index.vue');
-import(/* webpackPrefetch: true */ '@/pages/interview-resume/index.vue');
+import(/* webpackPrefetch: true */ '@/pages/ai-chat/index.vue');
 import(/* webpackPrefetch: true */ '@/pages/register/index.vue');
-import(/* webpackPrefetch: true */ '@/pages/comprehensive-questions/index.vue');
-import(/* webpackPrefetch: true */ '@/pages/interview-interface/index.vue');
+import(/* webpackPrefetch: true */ '@/pages/ai-questions/index.vue');
+import(/* webpackPrefetch: true */ '@/pages/ai-hall/index.vue');
 import(/* webpackPrefetch: true */ '@/pages/job-selection/index.vue');
-import(/* webpackPrefetch: true */ '@/pages/interview-questions/index.vue');
 import(/* webpackPrefetch: true */ '@/pages/login/index.vue');
-import(/* webpackPrefetch: true */ '@/pages/comprehensive-report/index.vue');
 
 export function createApp() {
 	const app = createSSRApp(App);
