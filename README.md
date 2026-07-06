@@ -1,26 +1,26 @@
 # Interview Agent
 
-一个面向求职训练场景的 AI 面试平台，覆盖岗位选择、AI 面试、专项题作答、简历评测、场景评测、综合报告、排行榜、聊天大厅和管理后台。当前仓库采用前后端分离架构：
+一个面向求职训练场景的 AI 面试平台，覆盖岗位选择、AIview 编排、简历投递评测、试题作答、AI 模拟面试、排行榜、聊天大厅和管理后台。当前仓库采用前后端分离架构：
 
 - 前端：`uni-app + Vue 3 + Vite`
 - 后端：`Spring Boot 3 + Spring Security + MyBatis`
 - 存储与中间件：`MySQL + Redis + MinIO`
 - AI 与多模态：`Spring AI Alibaba Agent Framework`、简历解析、语音合成、音频转写、场景评测
 
-本文档按当前仓库代码结构更新，重点说明实际可见的页面、接口和启动方式。
-
 ## 项目概览
 
 ### 当前已实现的业务模块
 
-- 用户认证：注册、登录、找回密码、RSA 公钥获取
-- 用户中心：昵称、头像、密码、邮箱、手机号、护眼模式、惊喜模式
-- 岗位体系：岗位分类树、岗位列表、岗位详情、岗位管理
-- 训练流程：AI 面试、专项题作答、简历评测、场景评测、综合测评
-- 结果沉淀：历史记录、综合报告、专项/综合排行榜
-- 社区互动：聊天大厅、祝福墙、反馈
-- 管理后台：用户列表、用户权限、专项题管理、场景题管理、岗位分类管理、岗位管理
-- AI 会话：Agent 会话持久化、消息记录、事件记录、压缩记忆
+| 模块 | 能力说明 |
+| --- | --- |
+| 用户认证 | 注册、登录、找回密码、RSA 公钥获取 |
+| 用户中心 | 昵称、头像、密码、邮箱、手机号、护眼模式、惊喜模式 |
+| 岗位体系 | 岗位分类树、岗位列表、岗位详情、岗位分类管理、岗位职位管理 |
+| AIview 流程 | AIview 编排、简历投递评测、试题作答、AI 模拟面试、多阶段通过标准 |
+| 结果沉淀 | AIview 洞察、Agent 会话、分阶段排行榜 |
+| 社区互动 | 聊天大厅、祝福墙、反馈 |
+| 管理后台 | 用户列表、用户权限、岗位分类管理、岗位职位管理 |
+| AI 会话 | Agent 会话持久化、消息记录、事件记录、压缩记忆 |
 
 ### 适用场景
 
@@ -28,97 +28,107 @@
 - 校招训练营、职业教育实训
 - 企业内部培训或题库演示系统
 
-## 系统截图
-
-> 当前仓库已包含部分页面素材，下面直接引用仓库现有图片。
-
-### 首页
-
-![首页](./project/src/static/funtion_show/homepage.jpg)
-
-### 岗位选择
-
-![岗位选择](./project/src/static/funtion_show/job_selection_female.jpg)
-
-### AI 面试
-
-![功能展示](./project/src/static/funtion_show/homepage.jpg)
-
-### 聊天大厅
-
-![聊天大厅](./project/src/static/funtion_show/chat_ai.jpg)
-
 ## 系统架构
 
 ```mermaid
 flowchart LR
-    A[uni-app H5 Frontend] --> B[Spring Boot Backend]
-    B --> C[MySQL]
-    B --> D[Redis]
-    B --> E[MinIO Avatar Storage]
-    B --> F[REST API]
-    B --> G[Swagger / OpenAPI]
-    B --> H[Agent Router + Skills]
-    B --> I[DeepSeek / AI Services]
-    B --> J[Speech / Audio Services]
+    User[Browser / H5] --> Web[uni-app + Vue 3 + Vite]
+    Web -->|/api| Server[Spring Boot Backend]
+    Server --> Security[Spring Security + JWT]
+    Server --> MySQL[(MySQL)]
+    Server --> Redis[(Redis + Redisson)]
+    Server --> MinIO[(MinIO)]
+    Server --> Agent[ReactAgent Router + Skills]
+    Agent --> DeepSeek[DeepSeek ChatModel]
+    Server --> Speech[Speech / Transcription]
+    Server --> OpenAPI[Swagger / OpenAPI]
+    Promtail[Promtail] --> Loki[(Loki)]
+    Server --> Promtail
+    Web --> Promtail
+    Loki --> Grafana[Grafana]
+```
+
+### 核心链路速览
+
+| 链路 | 前端入口 | 后端入口 | 主要存储/依赖 |
+| --- | --- | --- | --- |
+| 登录认证 | `pages/login/index` | `/api/auth` | MySQL、JWT、RSA、BCrypt |
+| AIview 对话 | `pages/ai-chat/index` | `/api/xunfei/getAgentAnswer` | ReactAgent、Skills、DeepSeek、Redis |
+| 简历评测 | `pages/ai-resume/index` | `/api/resume/extract`、`/api/ai-assessment/resume` | PDFBox、Apache POI、MySQL |
+| 试题作答 | `pages/ai-questions/index` | `/api/ai-assessment/question` | Skills、MySQL |
+| AI 模拟面试 | `pages/ai-scenario/index` | `/api/ai-assessment/interview-round` | 讯飞转写、Skills、MySQL |
+| 头像存储 | `pages/personal-center/index` | `/api/user/avatar/upload`、`/api/avatar` | MinIO |
+| 日志排查 | Docker 容器日志 | `X-Trace-Id` | Promtail、Loki、Grafana |
+
+### AIview 流程图
+
+```mermaid
+flowchart TD
+    Hall[AI 面试大厅] --> Chat[AIview 对话编排]
+    Chat --> Resume[简历投递评测]
+    Chat --> Questions[试题作答]
+    Chat --> Scenario[AI 模拟面试]
+    Resume --> Inbox[Completion Inbox]
+    Questions --> Inbox
+    Scenario --> Inbox
+    Inbox --> Chat
+    Chat --> Followup[AI 生成总结与下一步建议]
+    Followup --> Ranking[排行榜 / 历史洞察]
 ```
 
 ## 前端页面
 
 当前 `project/src/pages.json` 中已注册的页面包括：
 
-- `pages/landing/index`：落地页
-- `pages/login/index`：登录
-- `pages/register/index`：注册
-- `pages/home/index`：首页
-- `pages/job-selection/index`：岗位选择
-- `pages/interview-interface/index`：模拟面试
-- `pages/interview-ai/index`：AI 面试
-- `pages/interview-resume/index`：简历评测
-- `pages/interview-questions/index`：专项题作答
-- `pages/interview-scenario/index`：场景评测
-- `pages/comprehensive-resume/index`：综合测评中的简历评测
-- `pages/comprehensive-questions/index`：综合测评中的试题作答
-- `pages/comprehensive-scenario/index`：综合测评中的场景评测
-- `pages/comprehensive-report/index`：综合报告
-- `pages/history/index`：历史记录
-- `pages/personal-center/index`：个人中心
-- `pages/chat-hall/index`：聊天大厅
-- `pages/leaderboard/index`：排行榜
-- `pages/admin/**`：管理员中心、用户列表、权限管理、专项题管理、场景题管理、岗位分类管理、岗位管理
+| 页面路径 | 页面作用 |
+| --- | --- |
+| `pages/landing/index` | 落地页 |
+| `pages/login/index` | 登录 |
+| `pages/register/index` | 注册 |
+| `pages/home/index` | 首页 |
+| `pages/job-selection/index` | 岗位选择 |
+| `pages/ai-hall/index` | AI 面试大厅 |
+| `pages/ai-chat/index` | AIview 对话编排页 |
+| `pages/ai-resume/index` | 简历投递评测 |
+| `pages/ai-questions/index` | 试题作答 |
+| `pages/ai-scenario/index` | AI 模拟面试 |
+| `pages/personal-center/index` | 个人中心 |
+| `pages/chat-hall/index` | 聊天大厅 |
+| `pages/leaderboard/index` | 排行榜 |
+| `pages/admin/**` | 管理员中心、用户列表、权限管理、岗位分类管理、岗位职位管理 |
 
 ## 后端能力
 
 当前后端控制器覆盖的接口域包括：
 
-- `/api/auth`：登录、注册、找回密码、RSA 公钥
-- `/api/user`：用户资料与个人设置
-- `/api/job-categories/*`、`/api/job*`、`/api/jobs*`：岗位分类与岗位管理
-- `/api/interview/*`：专项题题库、答题提交、结果与历史
-- `/api/resume/*`：简历提取、简历历史保存与恢复
-- `/api/comprehensive-history/*`：综合测评履历与综合报告
-- `/api/xunfei/getAgentAnswer`：统一 AI / Agent 调用入口
-- `/api/agent-conversations/*`：Agent 会话持久化
-- `/api/rank/*`：专项与综合排行榜
-- `/api/chat/*`：聊天大厅消息
-- `/api/blessings/*`：祝福墙
-- `/api/feedback/*`：用户反馈
-- `/api/scenario-question/*`、`/scenario/*`：场景题与场景评测历史
-- `/api/speech/*`、`/api/transcription/*`：语音合成与音频转写
-- `/api/avatar`：后端代理读取 MinIO 中的头像对象
+| 接口域 | 能力说明 |
+| --- | --- |
+| `/api/auth` | 登录、注册、找回密码、RSA 公钥 |
+| `/api/user` | 用户资料与个人设置 |
+| `/api/job-categories/*`、`/api/job*`、`/api/jobs*` | 岗位分类与岗位管理 |
+| `/api/resume/extract` | 简历文件内容提取 |
+| `/api/ai-assessment/*` | AIview 简历、试题、面试轮次评测记录 |
+| `/api/aiview-insights/*` | AIview 近 7 天历史洞察 |
+| `/api/xunfei/getAgentAnswer` | 统一 AI / Agent 调用入口 |
+| `/api/agent-conversations/*` | Agent 会话持久化 |
+| `/api/rank/aiview/*` | AIview 分阶段排行榜 |
+| `/api/chat/*` | 聊天大厅消息 |
+| `/api/blessings/*` | 祝福墙 |
+| `/api/feedback/*` | 用户反馈 |
+| `/api/speech/*`、`/api/transcription/*` | 语音合成与音频转写 |
+| `/api/avatar` | 后端代理读取 MinIO 中的头像对象 |
 
 另外，后端 `backend/src/main/resources/skills/` 下已经包含多个内置技能定义，例如：
 
-- `interview-assistant`
-- `resume-analysis`
-- `comprehensive-resume-analysis`
-- `scenario-question-gen`
-- `scenario-question-scoring`
-- `scenario-evaluation`
-- `scenario-audio-evaluation`
-- `comprehensive-question-generation`
-- `question-analysis`
-- `comprehensive-report`
+| Skill | 作用 |
+| --- | --- |
+| `ai-interview-assistant` | AIview 对话编排和下一步建议 |
+| `ai-resume-analysis` | 简历投递评测 |
+| `ai-question-generation` | 试题生成 |
+| `ai-question-scoring` | 试题评分 |
+| `ai-question-analysis` | 题目解析 |
+| `ai-round-question-generation` | 面试轮次题目生成 |
+| `ai-round-evaluation` | 面试轮次回答评测 |
 
 ## 技术栈
 
@@ -181,7 +191,7 @@ interview_agent/
 │   └── src/main/resources/
 │       ├── application.yml      # 共享配置
 │       ├── application-dev.yml  # 本地开发配置
-│       ├── sql/                 # 数据库初始化脚本
+│       ├── db/migration/        # Flyway 数据库迁移脚本
 │       └── skills/              # 内置 Agent Skills
 ├── project/
 │   ├── src/
@@ -216,10 +226,11 @@ cd interview_agent
 
 ### 2. 初始化数据库
 
-执行以下脚本：
+后端已接入 Flyway，启动时会自动执行按数据库类型隔离的迁移脚本：
 
 ```text
-backend/src/main/resources/sql/interview_agent.sql
+backend/src/main/resources/db/migration/mysql/V1__init_schema.sql
+backend/src/main/resources/db/migration/h2/V1__init_schema.sql
 ```
 
 默认数据库名为：
@@ -249,7 +260,7 @@ Frontend - Runtime
 
 - 后端端口：`8442`
 - 前端端口：`5172`
-- MySQL：Compose 内部 `mysql:3306/interview_agent`，宿主机端口 `3307`
+- MySQL：Compose 内部 `mysql:3306/interview_agent`，宿主机端口由 `PLATFORM_MYSQL_HOST_PORT` 控制
 - Redis：Compose 内部 `redis:6379`
 - MinIO：API 端口 `9000`，控制台端口 `9001`
 - 头像存储：上传到 MinIO，数据库保存后端代理 URL `/api/avatar?object=...`
@@ -344,7 +355,7 @@ npm run dev:h5
 ### 8. HTTPS 说明
 
 - 前端 `vite.config.js` 已启用本地证书：`localhost+2.pem` 与 `localhost+2-key.pem`
-- Compose 中后端默认关闭 SSL，前端通过 Vite proxy 访问后端容器
+- Compose 中后端端口和 SSL 开关由根目录 `.env` 注入，当前开发配置默认开启 SSL
 - 手动启动后端时，`application-dev.yml` 默认开启 SSL，可通过 `PLATFORM_SSL_ENABLED=false` 覆盖
 - 浏览器首次访问本地 HTTPS 服务时，可能需要手动信任证书
 
@@ -361,7 +372,7 @@ curl -k https://localhost:8442/api/auth/rsa-public-key
 说明：
 
 - 登录、注册、重置密码前，前端会先调用该接口获取 RSA 公钥
-- `project/src/utils/request.js` 中已实现敏感密码字段的前端 RSA 加密
+- `project/src/utils/api/request.js` 中已实现敏感密码字段的前端 RSA 加密
 
 ### 2. 获取岗位分类树
 
@@ -382,7 +393,7 @@ curl -k -X POST https://localhost:8442/api/xunfei/getAgentAnswer \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <your-jwt-token>" \
   -d '{
-    "agentKey": "interview-assistant",
+    "agentKey": "ai-interview-assistant",
     "chatId": "demo-chat-001",
     "params": {
       "message": "帮我开始一轮前端工程师模拟面试",
@@ -398,7 +409,7 @@ curl -k -X POST https://localhost:8442/api/agent-conversations/session \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <your-jwt-token>" \
   -d '{
-    "agentKey": "interview-assistant",
+    "agentKey": "ai-interview-assistant",
     "chatId": "demo-chat-001",
     "title": "前端模拟面试",
     "preview": "我们先做一轮自我介绍"
@@ -432,7 +443,7 @@ curl -k -X POST https://localhost:8442/api/user/avatar/upload \
 ### 本地开发部署
 
 1. 准备 MySQL、Redis
-2. 初始化数据库脚本
+2. 确认 Flyway 迁移脚本可连接目标数据库执行
 3. 配置根目录 `.env`
 4. 确认前端代理目标与后端端口一致
 5. 启动后端
