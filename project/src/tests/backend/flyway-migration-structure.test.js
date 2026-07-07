@@ -6,6 +6,7 @@ const repoRoot = path.resolve(__dirname, "../../../..");
 const backendRoot = path.join(repoRoot, "backend");
 
 const readBackendSource = (relativePath) => readFileSync(path.join(backendRoot, relativePath), "utf8");
+const readRepoSource = (relativePath) => readFileSync(path.join(repoRoot, relativePath), "utf8");
 
 describe("backend Flyway migration setup", () => {
   it("adds Flyway dependencies for Spring Boot and MySQL migrations", () => {
@@ -67,5 +68,15 @@ describe("backend Flyway migration setup", () => {
     expect(mysql).not.toContain("LOCK TABLES");
     expect(mysql).not.toContain("UNLOCK TABLES");
     expect(mysql).not.toContain("FOREIGN_KEY_CHECKS");
+  });
+
+  it("lets Flyway own schema initialization in both compose environments", () => {
+    const devCompose = readRepoSource("docker-compose.yml");
+    const prodCompose = readRepoSource("docker-compose.prod.yml");
+
+    expect(devCompose).not.toContain("docker-entrypoint-initdb.d");
+    expect(prodCompose).not.toContain("docker-entrypoint-initdb.d");
+    expect(devCompose).toContain("dockerfile: Dockerfile.dev");
+    expect(prodCompose).toContain("dockerfile: Dockerfile");
   });
 });

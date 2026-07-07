@@ -8,7 +8,6 @@ services:
       - "${PLATFORM_MYSQL_HOST_PORT}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./backend/src/main/resources/sql/interview_agent.sql:/docker-entrypoint-initdb.d/01-interview-agent.sql:ro
 
   redis:
     image: redis:7

@@ -1,5 +1,5 @@
 -- Migrate an existing local database from the legacy comprehensive_* schema to AIview ai_* schema.
--- This script is intended for already-initialized environments; fresh environments use interview_agent.sql directly.
+-- This script is intended for already-initialized environments; fresh environments use Flyway baseline migrations directly.
 
 RENAME TABLE comprehensive_resume_history TO ai_resume_history;
 ALTER TABLE ai_resume_history
