@@ -294,7 +294,7 @@ Docker 镜像与生产编排说明见 [`docs/docker.md`](docs/docker.md)。
 默认访问地址：
 
 - 前端：`https://localhost:5172`
-- 后端：`https://localhost:8442`
+- 后端：`http://localhost:8442`
 - MinIO API：`http://localhost:9000`
 - MinIO Console：`http://localhost:9001`
 
@@ -316,7 +316,7 @@ Docker 镜像与生产编排说明见 [`docs/docker.md`](docs/docker.md)。
 - MySQL：`jdbc:mysql://localhost:3306/interview_agent`
 - Redis：`localhost:6379`
 - 后端端口：`8442`
-- SSL：默认开启，证书 `classpath:springboot-local.p12`
+- 后端协议：默认 HTTP，公网 HTTPS 由外层 Nginx/网关处理
 - MinIO：`http://localhost:9000`
 - AI：DeepSeek 与讯飞相关配置通过环境变量或本地 `.env` 注入
 
@@ -329,9 +329,9 @@ cd backend
 
 默认地址：
 
-- 服务地址：`https://localhost:8442`
-- Swagger UI：`https://localhost:8442/swagger-ui/index.html`
-- OpenAPI：`https://localhost:8442/v3/api-docs`
+- 服务地址：`http://localhost:8442`
+- Swagger UI：`http://localhost:8442/swagger-ui/index.html`
+- OpenAPI：`http://localhost:8442/v3/api-docs`
 
 ### 6. 手动启动前端
 
@@ -355,9 +355,9 @@ npm run dev:h5
 ### 8. HTTPS 说明
 
 - 前端 `vite.config.js` 已启用本地证书：`localhost+2.pem` 与 `localhost+2-key.pem`
-- Compose 中后端端口和 SSL 开关由根目录 `.env` 注入，当前开发配置默认开启 SSL
-- 手动启动后端时，`application-dev.yml` 默认开启 SSL，可通过 `PLATFORM_SSL_ENABLED=false` 覆盖
-- 浏览器首次访问本地 HTTPS 服务时，可能需要手动信任证书
+- 后端不再内置 Spring Boot HTTPS 证书配置，默认以 HTTP 运行
+- 生产环境推荐由外层 Nginx/网关统一处理公网 HTTPS，容器内通过 HTTP 访问 Spring Boot
+- 浏览器首次访问本地前端 HTTPS 服务时，可能需要手动信任证书
 
 ## 接口示例
 
@@ -366,7 +366,7 @@ npm run dev:h5
 ### 1. 获取 RSA 公钥
 
 ```bash
-curl -k https://localhost:8442/api/auth/rsa-public-key
+curl http://localhost:8442/api/auth/rsa-public-key
 ```
 
 说明：
@@ -377,19 +377,19 @@ curl -k https://localhost:8442/api/auth/rsa-public-key
 ### 2. 获取岗位分类树
 
 ```bash
-curl -k https://localhost:8442/api/job-categories/tree
+curl http://localhost:8442/api/job-categories/tree
 ```
 
 ### 3. 获取岗位列表
 
 ```bash
-curl -k "https://localhost:8442/api/job?categoryId=2"
+curl "http://localhost:8442/api/job?categoryId=2"
 ```
 
 ### 4. 调用统一 Agent 接口
 
 ```bash
-curl -k -X POST https://localhost:8442/api/xunfei/getAgentAnswer \
+curl -X POST http://localhost:8442/api/xunfei/getAgentAnswer \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <your-jwt-token>" \
   -d '{
@@ -405,7 +405,7 @@ curl -k -X POST https://localhost:8442/api/xunfei/getAgentAnswer \
 ### 5. 保存 Agent 会话
 
 ```bash
-curl -k -X POST https://localhost:8442/api/agent-conversations/session \
+curl -X POST http://localhost:8442/api/agent-conversations/session \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <your-jwt-token>" \
   -d '{
@@ -419,7 +419,7 @@ curl -k -X POST https://localhost:8442/api/agent-conversations/session \
 ### 6. 简历内容提取
 
 ```bash
-curl -k -X POST https://localhost:8442/api/resume/extract \
+curl -X POST http://localhost:8442/api/resume/extract \
   -H "Authorization: Bearer <your-jwt-token>" \
   -F "file=@/path/to/resume.pdf"
 ```
@@ -427,7 +427,7 @@ curl -k -X POST https://localhost:8442/api/resume/extract \
 ### 7. 上传头像到 MinIO
 
 ```bash
-curl -k -X POST https://localhost:8442/api/user/avatar/upload \
+curl -X POST http://localhost:8442/api/user/avatar/upload \
   -H "Authorization: Bearer <your-jwt-token>" \
   -F "file=@/path/to/avatar.png"
 ```
@@ -492,16 +492,16 @@ npm run build:h5
 #### 反向代理建议
 
 - 由 Nginx 统一处理 HTTPS 证书与域名
-- `/api/` 反代到 Spring Boot 服务
+- `/api/` 通过 HTTP 反代到 Spring Boot 服务
 - `/api/avatar` 通过 `/api/` 反代到 Spring Boot 服务，由后端代理读取 MinIO 头像
 - 前端静态资源由 Nginx 直接托管
 
 ## 开发注意事项
 
-- 前端开发默认使用 Vite proxy 访问后端，不再写死 `https://localhost:8442`
+- 前端开发默认使用 Vite proxy 访问后端，不再写死后端地址
 - 后端很多接口需要 JWT，未认证会返回 `401`
 - 登录、注册、重置密码依赖前端 RSA 加密流程
-- 若后端无法启动，优先检查端口、数据库、Redis、MinIO、SSL 证书和第三方 AI 配置
+- 若后端无法启动，优先检查端口、数据库、Redis、MinIO 和第三方 AI 配置
 - 若前端 HTTPS 打不开，优先检查 `project/localhost+2.pem` 与 `localhost+2-key.pem`
 - 若头像上传报错，检查 MinIO 服务、bucket、access key、secret key 和 `PLATFORM_MINIO_INTERNAL_ENDPOINT`
 

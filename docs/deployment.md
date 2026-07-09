@@ -29,7 +29,7 @@ flowchart LR
 | 服务 | 作用 | 默认端口变量 |
 | --- | --- | --- |
 | `web` | 前端生产容器，Nginx 托管 H5 静态资源 | `PLATFORM_WEB_HOST_PORT` |
-| `server` | 后端 Spring Boot API 服务 | `PLATFORM_SERVER_HOST_PORT` |
+| `server` | 后端 Spring Boot API 服务，仅在 Compose 网络内供 `web` 访问 | 不直接发布宿主机端口 |
 | `mysql` | MySQL 业务数据库 | `PLATFORM_MYSQL_HOST_PORT` |
 | `redis` | Redis 缓存与短期状态 | `PLATFORM_REDIS_HOST_PORT` |
 | `minio` | 对象存储，保存头像等文件 | `PLATFORM_MINIO_API_HOST_PORT` / `PLATFORM_MINIO_CONSOLE_HOST_PORT` |
@@ -83,7 +83,6 @@ git pull origin main
 # Backend - Runtime
 SPRING_PROFILES_ACTIVE=dev
 PLATFORM_SERVER_HOST_PORT=8442
-PLATFORM_SSL_ENABLED=true
 PLATFORM_CORS_ALLOWED_ORIGINS=https://your-domain.example
 PLATFORM_SWAGGER_ENABLED=false
 
@@ -129,7 +128,7 @@ PLATFORM_XUNFEI_OST_API_SECRET=change-me
 
 # Frontend - Runtime
 PLATFORM_WEB_HOST_PORT=5172
-PLATFORM_WEB_API_PROXY_TARGET=https://server:8442
+PLATFORM_WEB_API_PROXY_TARGET=http://server:8442
 
 # Backend - Logging
 PLATFORM_LOKI_HOST_PORT=3100
@@ -416,7 +415,7 @@ http://localhost:${PLATFORM_GRAFANA_HOST_PORT}
 flowchart LR
     Client[Client Browser] -->|HTTPS 443| Gateway[Reverse Proxy / Load Balancer]
     Gateway -->|HTTP| Web[web:80]
-    Web -->|/api proxy| Server[server:8442 HTTPS]
+    Web -->|/api proxy over HTTP| Server[server:8442 HTTP]
     Server --> MySQL[(MySQL)]
     Server --> Redis[(Redis)]
     Server --> MinIO[(MinIO)]
@@ -425,9 +424,9 @@ flowchart LR
 推荐做法：
 
 - 公网只开放 `443` 和必要的 `80` 跳转端口。
-- `web`、`server`、`mysql`、`redis`、`loki` 尽量只在内网或 Compose 网络内访问。
+- `server` 默认只在 Compose 网络内访问；`mysql`、`redis`、`loki` 也建议只对受控网络开放。
 - Grafana 和 MinIO Console 如需公网访问，应额外加访问控制。
-- 后端当前默认开启 HTTPS，前端 Nginx 代理到 `https://server:8442`，因此 `PLATFORM_WEB_API_PROXY_TARGET` 推荐保持 `https://server:8442`。
+- 后端容器默认使用 HTTP，前端 Nginx 代理到 `http://server:8442`；公网 HTTPS 证书集中放在外层 Nginx、Caddy、云负载均衡或 Ingress。
 
 ## 常见故障
 
@@ -496,10 +495,10 @@ docker compose -f docker-compose.prod.yml logs --tail=100 server
 
 检查：
 
-- `PLATFORM_WEB_API_PROXY_TARGET` 是否为容器内可访问地址，例如 `https://server:8442`。
-- 后端 HTTPS 是否启用。
+- `PLATFORM_WEB_API_PROXY_TARGET` 是否为容器内可访问地址，例如 `http://server:8442`。
+- 后端是否以 HTTP 方式监听 `PLATFORM_SERVER_HOST_PORT`。
 - 前端生产 Nginx 是否正确代理 `/api`。
-- 浏览器是否信任证书。
+- 外层 HTTPS 网关是否正确转发到 `web` 容器端口。
 
 命令：
 

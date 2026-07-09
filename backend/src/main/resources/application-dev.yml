@@ -29,12 +29,6 @@ jwt:
 
 server:
   port: ${PLATFORM_SERVER_PORT:8442}
-  ssl:
-    enabled: ${PLATFORM_SSL_ENABLED:true}
-    key-store: "${PLATFORM_SSL_KEY_STORE:classpath:springboot-local.p12}"
-    key-store-password: ${PLATFORM_SSL_KEY_STORE_PASSWORD:changeit}
-    key-store-type: ${PLATFORM_SSL_KEY_STORE_TYPE:PKCS12}
-    key-alias: ${PLATFORM_SSL_KEY_ALIAS:1}
 
 xunfei:
   appid: ${PLATFORM_XUNFEI_APPID:}

@@ -23,10 +23,6 @@ jwt:
   secret: test-only-change-me-please-use-at-least-32-bytes
   expiration: 604800000
 
-server:
-  ssl:
-    enabled: false
-
 storage:
   minio:
     endpoint: http://localhost:9000

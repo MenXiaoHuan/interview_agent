@@ -89,7 +89,7 @@ flowchart TB
 | `project/package.json` | 前端依赖和脚本 | `dev:h5`、`build:h5`、`lint`、`test` |
 | `project/Dockerfile.dev` | 前端开发镜像 | Docker 开发环境运行 `npm run dev:h5` |
 | `project/Dockerfile` | 前端生产镜像 | 多阶段构建静态资源，最终用 Nginx 提供服务 |
-| `project/nginx.conf.template` | 生产 Nginx 配置 | 生产容器代理 `/api` 到后端 |
+| `project/nginx.conf.template` | 生产 Nginx 配置模板 | 容器启动时渲染环境变量，代理 `/api` 到后端 |
 | `project/.dockerignore` | 构建上下文过滤 | 排除 `node_modules`、`dist`、缓存和日志 |
 
 ### 前端请求链路
@@ -97,7 +97,7 @@ flowchart TB
 1. 页面调用 `project/src/utils/api/request.js` 中封装的请求方法。
 2. 请求前从本地存储取出 JWT，放到 `Authorization: Bearer <token>`。
 3. 登录、注册、改密码等敏感字段会先获取后端 RSA 公钥，再用浏览器 Web Crypto 做 RSA-OAEP 加密。
-4. 开发环境下，页面请求 `/api` 会由 Vite 代理到后端 `https://server:8442`。
+4. 开发环境下，页面请求 `/api` 会由 Vite 代理到后端容器的 HTTP 服务。
 5. 后端返回统一 `ApiResponse` 结构后，前端统一处理成功、401、403、429、500 等状态。
 
 请求层集中处理 token、错误提示和敏感字段加密，避免每个页面重复实现鉴权与异常逻辑，让安全逻辑更集中，页面代码更干净。
@@ -218,6 +218,7 @@ AI 能力拆成多个有边界的 Agent，而不是一个大 Prompt 处理所有
 - `.env` 集中管理端口、数据库、Redis、MinIO、AI key、Grafana 密码等配置。
 - 数据通过命名卷持久化，容器重建不直接丢数据。
 - 开发和生产分开：`docker-compose.yml` 用 dev 镜像和源码挂载，`docker-compose.prod.yml` 用生产镜像。
+- 生产推荐由外层 Nginx/网关处理公网 HTTPS，Compose 内部通过 HTTP 访问 Spring Boot。
 
 ### `docker-compose.yml` 服务说明
 
@@ -255,7 +256,7 @@ AI 能力拆成多个有边界的 Agent，而不是一个大 Prompt 处理所有
 | 文件 | 用途 | 主要差异 |
 | --- | --- | --- |
 | `docker-compose.yml` | 本地开发 | 使用 `Dockerfile.dev`，源码挂载进容器，支持快速迭代 |
-| `docker-compose.prod.yml` | 生产部署参考 | 使用生产 `Dockerfile`，构建 jar/静态资源，运行更接近正式环境 |
+| `docker-compose.prod.yml` | 生产部署参考 | 使用生产 `Dockerfile`，前端 Nginx 托管静态资源并通过 HTTP 代理后端 |
 
 Compose 和 Dockerfile 的职责分离：Compose 负责编排服务关系、网络、端口和卷；Dockerfile 负责描述单个服务镜像如何构建。开发镜像偏向热更新和依赖缓存，生产镜像偏向体积和运行稳定性。
 

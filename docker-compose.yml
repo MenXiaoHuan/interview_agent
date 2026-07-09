@@ -87,6 +87,8 @@ services:
     working_dir: /app
     env_file:
       - .env
+    environment:
+      PLATFORM_WEB_API_PROXY_TARGET: http://server:${PLATFORM_SERVER_HOST_PORT}
     volumes:
       - ./project:/app
       - web-node-modules:/app/node_modules
